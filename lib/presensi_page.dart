@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'registration_form_page.dart'; // Impor halaman formulir registras
 
 class PresensiPage extends StatelessWidget {
   @override
@@ -85,7 +86,7 @@ class PresensiPage extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 40), // Spacing before bottom nav
+              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -152,9 +153,16 @@ class PresensiPage extends StatelessWidget {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () {
-                              Navigator.pop(context);
+                              // Aksi untuk pindah ke halaman registrasi
+                              Navigator.pop(context); // Tutup bottom sheet
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => RegistrationFormPage(),
+                                ),
+                              );
                             },
-                             style: ElevatedButton.styleFrom(
+                            style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.black,
                                 foregroundColor: Colors.white,
                                 minimumSize: const Size(double.infinity, 50),
