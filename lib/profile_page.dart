@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_app_tugas/login_page.dart'; // Impor untuk tombol Keluar Akun
- // Buat halaman ini di langkah selanjutnya
+import 'package:flutter_app_tugas/login_page.dart';
+import 'package:flutter_app_tugas/face_recognition_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
-  // Fungsi untuk logout
   void _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
     Navigator.of(context).pushAndRemoveUntil(
@@ -20,47 +19,39 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // Jika tidak ada pengguna yang login, kembali ke halaman login
       return const LoginPage();
     }
 
-    // Mengambil data pengguna dari Cloud Firestore
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Akun',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-        if (snapshot.hasError) {
-          return const Scaffold(
-            body: Center(child: Text('Terjadi kesalahan saat memuat data.')),
-          );
-        }
+          if (snapshot.hasError) {
+            return const Center(child: Text('Terjadi kesalahan saat memuat data.'));
+          }
 
-        if (!snapshot.hasData || !snapshot.data!.exists) {
-          return const Scaffold(
-            body: Center(child: Text('Data pengguna tidak ditemukan.')),
-          );
-        }
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return const Center(child: Text('Data pengguna tidak ditemukan.'));
+          }
 
-        final userData = snapshot.data!.data() as Map<String, dynamic>;
-        final fullName = userData['fullName'] ?? 'Nama Tidak Ditemukan';
-        final nip = userData['nip'] ?? 'NIP Tidak Ditemukan';
-        
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text(
-              'Akun',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            backgroundColor: Colors.white,
-            elevation: 0,
-            centerTitle: true,
-          ),
-          body: SingleChildScrollView(
+          final userData = snapshot.data!.data() as Map<String, dynamic>;
+          final fullName = userData['fullName'] ?? 'Nama Tidak Ditemukan';
+          final nip = userData['nip'] ?? 'NIP Tidak Ditemukan';
+
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -79,7 +70,7 @@ class ProfilePage extends StatelessWidget {
                   isBold: true,
                 ),
                 _buildDataCard(
-                  icon: Icons.mail_outline,
+                  icon: Icons.badge,
                   label: 'NIP',
                   value: nip,
                   iconColor: Colors.black,
@@ -96,11 +87,16 @@ class ProfilePage extends StatelessWidget {
                     // TODO: Navigasi ke halaman Riwayat Absensi
                   },
                 ),
+                // Tombol ini sekarang mengarah ke FaceRecognitionPage
                 _buildActionCard(
                   context,
                   icon: Icons.face_retouching_natural,
                   label: 'Registrasi Face Recognition',
                   onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const FaceRecognitionPage()),
+                    );
                   },
                 ),
                 const SizedBox(height: 24.0),
@@ -114,16 +110,23 @@ class ProfilePage extends StatelessWidget {
                   isLogout: true,
                   onTap: () => _logout(context),
                 ),
+                const SizedBox(height: 50),
+                const Center(
+                  child: Text(
+                    'Absen.In - VERSI 1.1.0\n2025',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               ],
             ),
-          ),
-          bottomNavigationBar: _buildBottomNavigationBar(),
-        );
-      },
+          );
+        },
+      ),
+      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
-  // Widget untuk kartu profil utama
   Widget _buildProfileCard(String fullName, String nip) {
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -178,7 +181,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // Widget untuk judul seksi
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -193,7 +195,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // Widget untuk menampilkan data diri
   Widget _buildDataCard({
     required IconData icon,
     required String label,
@@ -230,7 +231,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // Widget untuk kartu yang bisa diklik
   Widget _buildActionCard(
     BuildContext context, {
     required IconData icon,
@@ -274,7 +274,6 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  // Widget untuk Bottom Navigation Bar
   Widget _buildBottomNavigationBar() {
     return BottomNavigationBar(
       type: BottomNavigationBarType.fixed,
@@ -292,7 +291,7 @@ class ProfilePage extends StatelessWidget {
           label: 'Akun',
         ),
       ],
-      currentIndex: 2, // Indeks 2 untuk halaman "Akun"
+      currentIndex: 2,
       onTap: (index) {
         // TODO: Tambahkan logika navigasi untuk Bottom Navigation Bar
       },

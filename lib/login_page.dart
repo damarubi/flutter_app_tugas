@@ -21,8 +21,8 @@ class _LoginPageState extends State<LoginPage> {
     });
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: '${_nipController.text}@pegawai.com', // Gunakan NIP sebagai bagian dari email
-        password: _passwordController.text,
+      email: '${_nipController.text}@absensi.com', // <-- Sesuaikan dengan halaman register
+      password: _passwordController.text,
       );
       // Jika login berhasil, navigasi ke halaman profil
       Navigator.of(context).pushReplacement(
