@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'absensi-pegawai-app.firebasestorage.app',
     measurementId: 'G-R3NTBP3WPQ',
   );
+
 }

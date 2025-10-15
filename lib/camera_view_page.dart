@@ -1,10 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'success_page.dart';
+import 'package:flutter_app_tugas/success_page.dart';
 
 class CameraViewPage extends StatefulWidget {
   const CameraViewPage({super.key});
@@ -18,7 +18,7 @@ class _CameraViewPageState extends State<CameraViewPage> {
   String? _errorMessage;
   bool _isLoading = false;
 
-  Future<void> _takeSelfie() async {
+  Future<void> _takeSelfieAndSave() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -38,17 +38,17 @@ class _CameraViewPageState extends State<CameraViewPage> {
         return; // User canceled
       }
 
-      await _uploadImageToFirebase(File(image.path));
+      await _saveImageToFirestore(File(image.path));
     } catch (e) {
       setState(() {
         _errorMessage = 'Gagal mengambil foto: $e';
         _isLoading = false;
       });
-      print('Error taking or uploading image: $e');
+      print('Error taking or saving image: $e');
     }
   }
 
-  Future<void> _uploadImageToFirebase(File imageFile) async {
+  Future<void> _saveImageToFirestore(File imageFile) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       setState(() {
@@ -59,15 +59,14 @@ class _CameraViewPageState extends State<CameraViewPage> {
     }
 
     try {
-      final storageRef = FirebaseStorage.instance.ref().child('face_data/${user.uid}.jpg');
-      final uploadTask = storageRef.putFile(imageFile);
-      final snapshot = await uploadTask.whenComplete(() {});
+      // Read the image file as bytes
+      final bytes = await imageFile.readAsBytes();
+      // Convert the bytes to a base64 string
+      final base64Image = base64Encode(bytes);
 
-      final downloadUrl = await snapshot.ref.getDownloadURL();
-
-      // Save the download URL to Firestore
+      // Save the base64 string to Firestore
       await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-        'faceDataUrl': downloadUrl,
+        'faceDataBase64': base64Image,
         'faceRegistrationTimestamp': FieldValue.serverTimestamp(),
       });
 
@@ -75,17 +74,16 @@ class _CameraViewPageState extends State<CameraViewPage> {
         _isLoading = false;
       });
 
-      // Navigate to the success page
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const SuccessPage()),
       );
     } catch (e) {
       setState(() {
-        _errorMessage = 'Gagal mengunggah foto: $e';
+        _errorMessage = 'Gagal menyimpan foto: $e';
         _isLoading = false;
       });
-      print('Error uploading image to Firebase: $e');
+      print('Error saving image to Firestore: $e');
     }
   }
 
@@ -93,7 +91,7 @@ class _CameraViewPageState extends State<CameraViewPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _takeSelfie();
+      _takeSelfieAndSave();
     });
   }
 
@@ -117,7 +115,7 @@ class _CameraViewPageState extends State<CameraViewPage> {
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.grey, width: 2),
                 ),
-                child: const Icon(Icons.person, size: 150, color: Colors.grey),
+                child: const FlutterLogo(size: 150),
               ),
               const SizedBox(height: 30),
               const Text(

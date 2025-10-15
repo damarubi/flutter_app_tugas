@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_app_tugas/profile_page.dart'; // Import halaman profil
+import 'package:flutter_app_tugas/main.dart'; // Import MainScreen
 import 'package:flutter_app_tugas/register_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -24,9 +24,9 @@ class _LoginPageState extends State<LoginPage> {
       email: '${_nipController.text}@absensi.com', // <-- Sesuaikan dengan halaman register
       password: _passwordController.text,
       );
-      // Jika login berhasil, navigasi ke halaman profil
+      // Jika login berhasil, navigasi ke halaman utama (MainScreen)
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const ProfilePage()),
+        MaterialPageRoute(builder: (context) => const MainScreen()),
       );
     } on FirebaseAuthException catch (e) {
       String message;
@@ -35,14 +35,10 @@ class _LoginPageState extends State<LoginPage> {
       } else if (e.code == 'wrong-password') {
         message = 'Password salah.';
       } else {
-        message = 'Terjadi kesalahan saat login: ${e.message}';
+        message = 'Terjadi kesalahan. Silakan coba lagi.';
       }
       setState(() {
         _errorMessage = message;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Terjadi kesalahan tidak terduga: $e';
       });
     }
   }
@@ -50,55 +46,55 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Padding(
+      appBar: AppBar(
+        title: const Text('Login'),
+        centerTitle: true,
+      ),
+      body: Center(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              const SizedBox(height: 100),
-              // Image
-              CircleAvatar(
-                radius: 60,
-                backgroundColor: Colors.grey[200],
-                child: const Icon(Icons.person, size: 80, color: Colors.grey),
-              ),
-              const SizedBox(height: 48),
+              // Logo atau gambar aplikasi
+              const FlutterLogo(size: 100),
+              const SizedBox(height: 30),
 
               const Text(
-                'Login',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
+                'Selamat Datang!',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 10),
+              const Text(
+                'Masuk untuk melanjutkan',
+                style: TextStyle(fontSize: 16, color: Colors.black54),
+              ),
+              const SizedBox(height: 40),
 
-              // NIP Text Field
+              // NIP Input
               TextField(
                 controller: _nipController,
-                keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'Nomor Induk Pegawai',
+                  labelText: 'NIP',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.badge),
                 ),
+                keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 16),
 
-              // Password Text Field
+              // Password Input
               TextField(
                 controller: _passwordController,
-                obscureText: true,
                 decoration: const InputDecoration(
                   labelText: 'Password',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.lock),
                 ),
+                obscureText: true,
               ),
               const SizedBox(height: 8),
 
-              // Error Message
               if (_errorMessage != null)
                 Text(
                   _errorMessage!,

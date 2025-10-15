@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'camera_view_page.dart';
+import 'package:flutter_app_tugas/camera_view_page.dart';
 
 class FaceRecognitionPage extends StatelessWidget {
   const FaceRecognitionPage({super.key});
@@ -67,10 +67,8 @@ class FaceRecognitionPage extends StatelessWidget {
                   else
                     Column(
                       children: [
-                        Image.asset(
-                          'assets/images/user_avatar.png', // Replace with your image
-                          width: 120,
-                          height: 120,
+                        const FlutterLogo(
+                          size: 120,
                         ),
                         const SizedBox(height: 20),
                         const Text(

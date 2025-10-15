@@ -87,7 +87,6 @@ class ProfilePage extends StatelessWidget {
                     // TODO: Navigasi ke halaman Riwayat Absensi
                   },
                 ),
-                // Tombol ini sekarang mengarah ke FaceRecognitionPage
                 _buildActionCard(
                   context,
                   icon: Icons.face_retouching_natural,
@@ -123,7 +122,6 @@ class ProfilePage extends StatelessWidget {
           );
         },
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
@@ -271,30 +269,6 @@ class ProfilePage extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildBottomNavigationBar() {
-    return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-      items: const <BottomNavigationBarItem>[
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: 'Beranda',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.qr_code_scanner),
-          label: 'Presensi',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person),
-          label: 'Akun',
-        ),
-      ],
-      currentIndex: 2,
-      onTap: (index) {
-        // TODO: Tambahkan logika navigasi untuk Bottom Navigation Bar
-      },
     );
   }
 }
