@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_app_tugas/map_widget.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_app_tugas/map_widget.dart';
+import 'package:latlong2/latlong.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -13,55 +13,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  String _clockInTime = '--:--';
-  String _clockOutTime = '--:--';
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchAttendanceData();
-  }
-
-  Future<void> _fetchAttendanceData() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      setState(() {
-        _isLoading = false;
-      });
-      return;
-    }
-
-    // Mendapatkan tanggal hari ini dalam format YYYY-MM-DD
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-    FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('attendance')
-        .doc(today)
-        .snapshots()
-        .listen((snapshot) {
-      if (snapshot.exists) {
-        final data = snapshot.data();
-        if (data != null) {
-          setState(() {
-            _clockInTime = data['clockInTime'] ?? '--:--';
-            _clockOutTime = data['clockOutTime'] ?? '--:--';
-            _isLoading = false;
-          });
-        }
-      } else {
-        setState(() {
-          _clockInTime = '--:--';
-          _clockOutTime = '--:--';
-          _isLoading = false;
-        });
-      }
-    });
-  }
-
-  // Lokasi kantor yang sudah kita definisikan
   final officeLocations = [
     const LatLng(-7.7478, 110.3553), // Kantor 1
     const LatLng(-7.7836, 110.3172), // Kantor 2
@@ -69,6 +20,13 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const Center(child: Text('User not logged in'));
+    }
+
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Beranda'),
@@ -81,10 +39,8 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            // Widget "Cari Zona Absen"
             _buildSearchBar(),
             const SizedBox(height: 16),
-            // Peta Kantor 1
             const Text(
               'Kantor 1 (Yogyakarta)',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -92,16 +48,41 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 8),
             MapWidget(location: officeLocations[0]),
             const SizedBox(height: 16),
-            // Status Absensi
-            _buildAttendanceStatus(),
-            const SizedBox(height: 16),
-            // Peta Kantor 2
             const Text(
               'Kantor 2 (Yogyakarta)',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 8),
             MapWidget(location: officeLocations[1]),
+            const SizedBox(height: 24),
+
+            // StreamBuilder untuk menampilkan status absensi
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .collection('attendance')
+                  .doc(today)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return const Text('Terjadi kesalahan saat memuat data.');
+                }
+
+                final attendanceData = snapshot.data?.data() as Map<String, dynamic>?;
+                final clockInTime = attendanceData?['MasukTime'] as String?;
+                final clockOutTime = attendanceData?['KeluarTime'] as String?;
+
+                return _buildAttendanceCard(
+                  clockInTime: clockInTime,
+                  clockOutTime: clockOutTime,
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -110,29 +91,24 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildSearchBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(30),
       ),
-      child: const TextField(
-        decoration: InputDecoration(
-          hintText: 'Cari Zona Absen...',
-          border: InputBorder.none,
-          icon: Icon(Icons.search),
-        ),
+      child: const Row(
+        children: <Widget>[
+          Icon(Icons.search, color: Colors.grey),
+          SizedBox(width: 8),
+          Text('Cari Zona Absen', style: TextStyle(color: Colors.grey)),
+        ],
       ),
     );
   }
 
-  Widget _buildAttendanceStatus() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final hasClockIn = _clockInTime != '--:--';
-    final hasClockOut = _clockOutTime != '--:--';
-    final isAbsent = !hasClockIn;
+  Widget _buildAttendanceCard({String? clockInTime, String? clockOutTime}) {
+    bool hasAbsen = clockInTime != null;
+    bool hasAbsenKeluar = clockOutTime != null;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -150,32 +126,31 @@ class _HomePageState extends State<HomePage> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
+        children: [
           const Text(
-            'Status Absensi Hari Ini',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            'Absensi Hari Ini',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
-          const SizedBox(height: 8),
-          if (isAbsent) ...[
+          const Divider(height: 24),
+          if (!hasAbsen)
             const Text(
               'Anda belum absen hari ini',
               style: TextStyle(color: Colors.red),
             ),
-          ] else ...[
-            Text(
-              'Anda sudah Clock In hari ini',
-              style: TextStyle(color: Colors.green),
-            ),
-          ],
           const SizedBox(height: 16),
           Row(
             children: [
-              _buildClockButton(label: 'Clock In', time: _clockInTime, isClocked: hasClockIn),
+              _buildClockButton(
+                label: 'Clock In',
+                time: clockInTime ?? '--:--',
+                isFilled: hasAbsen,
+              ),
               const SizedBox(width: 16),
-              _buildClockButton(label: 'Clock Out', time: _clockOutTime, isClocked: hasClockOut),
+              _buildClockButton(
+                label: 'Clock Out',
+                time: clockOutTime ?? '--:--',
+                isFilled: hasAbsenKeluar,
+              ),
             ],
           ),
         ],
@@ -183,23 +158,29 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildClockButton({required String label, required String time, required bool isClocked}) {
+  Widget _buildClockButton({
+    required String label,
+    required String time,
+    required bool isFilled,
+  }) {
+    Color containerColor = isFilled ? Colors.green[50]! : Colors.grey[200]!;
+    Color borderColor = isFilled ? Colors.green : Colors.grey[400]!;
+    Color labelColor = isFilled ? Colors.green : Colors.black;
+
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isClocked ? (label == 'Clock In' ? Colors.green[50] : Colors.red[50]) : Colors.grey[200],
+          color: containerColor,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isClocked ? (label == 'Clock In' ? Colors.green : Colors.red) : Colors.grey[400]!,
-          ),
+          border: Border.all(color: borderColor),
         ),
         child: Column(
           children: <Widget>[
             Text(
               label,
               style: TextStyle(
-                color: isClocked ? (label == 'Clock In' ? Colors.green : Colors.red) : Colors.black,
+                color: labelColor,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -207,7 +188,7 @@ class _HomePageState extends State<HomePage> {
             Text(
               time,
               style: TextStyle(
-                color: isClocked ? (label == 'Clock In' ? Colors.green : Colors.red) : Colors.black,
+                color: Colors.black87,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
