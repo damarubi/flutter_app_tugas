@@ -180,7 +180,7 @@ class _HomePageState extends State<HomePage> {
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
+                      blurRadius: 4,
                       offset: const Offset(0, 4),
                     ),
                   ],
@@ -197,8 +197,8 @@ class _HomePageState extends State<HomePage> {
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.08),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                              blurRadius: 4,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
@@ -273,7 +273,7 @@ class _HomePageState extends State<HomePage> {
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
+                      blurRadius: 4,
                       offset: const Offset(0, 4),
                     ),
                   ],
@@ -352,6 +352,15 @@ class _HomePageState extends State<HomePage> {
                                           width: 2,
                                         ),
                                         borderRadius: BorderRadius.circular(25),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(
+                                              0.1,
+                                            ),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
                                       ),
                                       child: Text(
                                         DateFormat(
@@ -378,6 +387,13 @@ class _HomePageState extends State<HomePage> {
                                     decoration: BoxDecoration(
                                       color: statusColor,
                                       borderRadius: BorderRadius.circular(25),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.1),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
                                     ),
                                     child: Text(
                                       statusText,
@@ -403,6 +419,13 @@ class _HomePageState extends State<HomePage> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFFFE5E5),
                                   borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
                                 ),
                                 child: Row(
                                   children: [
@@ -468,6 +491,13 @@ class _HomePageState extends State<HomePage> {
         decoration: BoxDecoration(
           color: const Color(0xFFF5E6D3),
           borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: <Widget>[
@@ -568,6 +598,13 @@ class _HomePageState extends State<HomePage> {
       decoration: BoxDecoration(
         color: Colors.blue,
         borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: <Widget>[
