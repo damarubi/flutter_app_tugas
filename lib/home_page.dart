@@ -281,49 +281,13 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Status Laporan Absensi',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () => _selectDate(context),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Tanggal Laporan',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                SizedBox(width: 4),
-                                Icon(
-                                  Icons.arrow_drop_down,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                    // Header dengan judul saja
+                    const Text(
+                      'Status Laporan Absensi',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     StreamBuilder<DocumentSnapshot>(
@@ -350,35 +314,112 @@ class _HomePageState extends State<HomePage> {
                             attendanceData?['MasukTime'] as String?;
                         final clockOutTime =
                             attendanceData?['KeluarTime'] as String?;
-                        final hasAttendanceToday =
-                            clockInTime != null || clockOutTime != null;
+
+                        // Tentukan status absensi
+                        String statusText;
+                        Color statusColor;
+
+                        if (clockInTime == null && clockOutTime == null) {
+                          statusText = 'Belum Clock-in';
+                          statusColor = const Color(0xFFFF645C);
+                        } else if (clockInTime != null &&
+                            clockOutTime == null) {
+                          statusText = 'Belum Clock-out';
+                          statusColor = const Color(0xFFFF645C);
+                        } else {
+                          statusText = 'Sudah Absen';
+                          statusColor = const Color(0xFF85E085);
+                        }
 
                         return Column(
                           children: [
-                            if (!hasAttendanceToday)
+                            // Row dengan button Tanggal Laporan dan Status
+                            Row(
+                              children: [
+                                // Button Tanggal Laporan (biru outline) - Clickable
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => _selectDate(context),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        border: Border.all(
+                                          color: Colors.blue,
+                                          width: 2,
+                                        ),
+                                        borderRadius: BorderRadius.circular(25),
+                                      ),
+                                      child: Text(
+                                        DateFormat(
+                                          'dd MMM yyyy',
+                                        ).format(selectedDate),
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: Color.fromARGB(255, 0, 0, 0),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                // Button Status (merah/hijau filled)
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: statusColor,
+                                      borderRadius: BorderRadius.circular(25),
+                                    ),
+                                    child: Text(
+                                      statusText,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            // Pesan error jika belum absen
+                            if (clockInTime == null && clockOutTime == null)
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,
-                                  vertical: 8,
+                                  vertical: 10,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.red[50],
+                                  color: const Color(0xFFFFE5E5),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
                                   children: [
                                     Icon(
                                       Icons.cancel,
-                                      color: Colors.red[400],
+                                      color: const Color(0xFFFF645C),
                                       size: 20,
                                     ),
                                     const SizedBox(width: 8),
-                                    Text(
-                                      'Anda belum absen hari ini',
-                                      style: TextStyle(
-                                        color: Colors.red[700],
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
+                                    const Expanded(
+                                      child: Text(
+                                        'Anda belum absen hari ini',
+                                        style: TextStyle(
+                                          color: Color(0xFFFF645C),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -390,7 +431,7 @@ class _HomePageState extends State<HomePage> {
                                 Expanded(
                                   child: _buildClockButton(
                                     label: 'Clock In',
-                                    time: clockInTime ?? '09:00 AM',
+                                    time: clockInTime ?? '--:--',
                                     isActive: clockInTime != null,
                                   ),
                                 ),
@@ -487,7 +528,7 @@ class _HomePageState extends State<HomePage> {
                 return ListTile(
                   leading: Icon(
                     Icons.business,
-                    color: isSelected ? Colors.orange : Colors.grey,
+                    color: isSelected ? const Color(0xFFFFA778) : Colors.grey,
                   ),
                   title: Text(
                     office['name'] as String,
