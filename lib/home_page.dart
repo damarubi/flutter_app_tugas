@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_app_tugas/map_widget.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -13,10 +14,104 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final officeLocations = [
-    const LatLng(-7.7478, 110.3553), // Kantor 1
-    const LatLng(-7.7836, 110.3172), // Kantor 2
+  DateTime selectedDate = DateTime.now();
+  Position? currentPosition;
+  bool isInsideZone = false;
+  int selectedOfficeIndex = 0; // Index kantor yang dipilih
+
+  // Multiple office locations dengan nama
+  final List<Map<String, dynamic>> offices = const [
+    {'name': 'Kantor Pusat Yogyakarta', 'location': LatLng(-7.7478, 110.3553)},
+    {
+      'name': 'Kantor Cabang',
+      'location': LatLng(-7.805830924332875, 110.38896483238734),
+    },
   ];
+  final double geofenceRadius = 100.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLocationPermissionAndGetPosition();
+  }
+
+  Future<void> _checkLocationPermissionAndGetPosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return;
+    }
+
+    Position position = await Geolocator.getCurrentPosition();
+    setState(() {
+      currentPosition = position;
+      _checkIfInsideGeofence(position);
+    });
+  }
+
+  void _checkIfInsideGeofence(Position position) {
+    // Cek apakah user berada di salah satu zona kantor
+    bool insideAnyZone = false;
+
+    for (var office in offices) {
+      final location = office['location'] as LatLng;
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        location.latitude,
+        location.longitude,
+      );
+
+      if (distance <= geofenceRadius) {
+        insideAnyZone = true;
+        break;
+      }
+    }
+
+    setState(() {
+      isInsideZone = insideAnyZone;
+    });
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.blue,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != selectedDate) {
+      setState(() {
+        selectedDate = picked;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,64 +120,299 @@ class _HomePageState extends State<HomePage> {
       return const Center(child: Text('User not logged in'));
     }
 
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final selectedDateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
 
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Beranda'),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 4,
+              height: 20,
+              color: Colors.blue,
+              margin: const EdgeInsets.only(right: 4),
+            ),
+            Container(
+              width: 4,
+              height: 30,
+              color: Colors.blue,
+              margin: const EdgeInsets.only(right: 4),
+            ),
+            Container(
+              width: 4,
+              height: 20,
+              color: Colors.blue,
+              margin: const EdgeInsets.only(right: 8),
+            ),
+            const Text(
+              'Absen.in',
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
+            ),
+          ],
+        ),
         centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            _buildSearchBar(),
-            const SizedBox(height: 16),
-            const Text(
-              'Kantor 1 (Yogyakarta)',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _buildSearchBar(),
             ),
-            const SizedBox(height: 8),
-            MapWidget(location: officeLocations[0]),
-            const SizedBox(height: 16),
-            const Text(
-              'Kantor 2 (Yogyakarta)',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+
+            // Single Map untuk semua kantor dengan keterangan di dalam container
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // Map dengan padding agar tidak 100%
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Container(
+                        height: 280,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: MapWidget(
+                            locations: offices
+                                .map((office) => office['location'] as LatLng)
+                                .toList(),
+                            officeNames: offices
+                                .map((office) => office['name'] as String)
+                                .toList(),
+                            currentPosition: currentPosition,
+                            geofenceRadius: geofenceRadius,
+                            selectedOfficeIndex: selectedOfficeIndex,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Container keterangan di dalam container yang sama
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isInsideZone ? Icons.check_circle : Icons.info,
+                            color: isInsideZone ? Colors.blue : Colors.grey,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              isInsideZone
+                                  ? 'You are inside the allowed zone'
+                                  : 'You are outside the allowed zone',
+                              style: TextStyle(
+                                color: isInsideZone
+                                    ? Colors.black87
+                                    : Colors.grey[700],
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
-            MapWidget(location: officeLocations[1]),
+
             const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Status Laporan Absensi',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => _selectDate(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Tanggal Laporan',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                SizedBox(width: 4),
+                                Icon(
+                                  Icons.arrow_drop_down,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    StreamBuilder<DocumentSnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(user.uid)
+                          .collection('attendance')
+                          .doc(selectedDateStr)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20.0),
+                              child: CircularProgressIndicator(),
+                            ),
+                          );
+                        }
 
-            // StreamBuilder untuk menampilkan status absensi
-            StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .collection('attendance')
-                  .doc(today)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+                        final attendanceData =
+                            snapshot.data?.data() as Map<String, dynamic>?;
+                        final clockInTime =
+                            attendanceData?['MasukTime'] as String?;
+                        final clockOutTime =
+                            attendanceData?['KeluarTime'] as String?;
+                        final hasAttendanceToday =
+                            clockInTime != null || clockOutTime != null;
 
-                if (snapshot.hasError) {
-                  return const Text('Terjadi kesalahan saat memuat data.');
-                }
-
-                final attendanceData = snapshot.data?.data() as Map<String, dynamic>?;
-                final clockInTime = attendanceData?['MasukTime'] as String?;
-                final clockOutTime = attendanceData?['KeluarTime'] as String?;
-
-                return _buildAttendanceCard(
-                  clockInTime: clockInTime,
-                  clockOutTime: clockOutTime,
-                );
-              },
+                        return Column(
+                          children: [
+                            if (!hasAttendanceToday)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.red[50],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.cancel,
+                                      color: Colors.red[400],
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Anda belum absen hari ini',
+                                      style: TextStyle(
+                                        color: Colors.red[700],
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildClockButton(
+                                    label: 'Clock In',
+                                    time: clockInTime ?? '09:00 AM',
+                                    isActive: clockInTime != null,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildClockButton(
+                                    label: 'Clock Out',
+                                    time: clockOutTime ?? '--:--',
+                                    isActive: clockOutTime != null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -90,111 +420,134 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: const Row(
-        children: <Widget>[
-          Icon(Icons.search, color: Colors.grey),
-          SizedBox(width: 8),
-          Text('Cari Zona Absen', style: TextStyle(color: Colors.grey)),
-        ],
+    return GestureDetector(
+      onTap: () => _showOfficeSelector(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5E6D3),
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                offices[selectedOfficeIndex]['name'] as String,
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const Icon(Icons.search, color: Colors.black54),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildAttendanceCard({String? clockInTime, String? clockOutTime}) {
-    bool hasAbsen = clockInTime != null;
-    bool hasAbsenKeluar = clockOutTime != null;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            spreadRadius: 2,
-            blurRadius: 5,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Absensi Hari Ini',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-          const Divider(height: 24),
-          if (!hasAbsen)
-            const Text(
-              'Anda belum absen hari ini',
-              style: TextStyle(color: Colors.red),
+  void _showOfficeSelector(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
             ),
-          const SizedBox(height: 16),
-          Row(
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildClockButton(
-                label: 'Clock In',
-                time: clockInTime ?? '--:--',
-                isFilled: hasAbsen,
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-              const SizedBox(width: 16),
-              _buildClockButton(
-                label: 'Clock Out',
-                time: clockOutTime ?? '--:--',
-                isFilled: hasAbsenKeluar,
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'Pilih Zona Absen',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
               ),
+              ...offices.asMap().entries.map((entry) {
+                final index = entry.key;
+                final office = entry.value;
+                final isSelected = index == selectedOfficeIndex;
+
+                return ListTile(
+                  leading: Icon(
+                    Icons.business,
+                    color: isSelected ? Colors.orange : Colors.grey,
+                  ),
+                  title: Text(
+                    office['name'] as String,
+                    style: TextStyle(
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: isSelected ? Colors.orange : Colors.black87,
+                    ),
+                  ),
+                  trailing: isSelected
+                      ? const Icon(Icons.check_circle, color: Colors.orange)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      selectedOfficeIndex = index;
+                    });
+                    Navigator.pop(context);
+                  },
+                );
+              }).toList(),
+              const SizedBox(height: 16),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildClockButton({
     required String label,
     required String time,
-    required bool isFilled,
+    required bool isActive,
   }) {
-    Color containerColor = isFilled ? Colors.green[50]! : Colors.grey[200]!;
-    Color borderColor = isFilled ? Colors.green : Colors.grey[400]!;
-    Color labelColor = isFilled ? Colors.green : Colors.black;
-
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: containerColor,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: borderColor),
-        ),
-        child: Column(
-          children: <Widget>[
-            Text(
-              label,
-              style: TextStyle(
-                color: labelColor,
-                fontWeight: FontWeight.bold,
-              ),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.blue,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: <Widget>[
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
             ),
-            const SizedBox(height: 4),
-            Text(
-              time,
-              style: TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            time,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
