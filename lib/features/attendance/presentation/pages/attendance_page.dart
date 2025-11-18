@@ -172,26 +172,38 @@ class _AttendancePageState extends State<AttendancePage> {
                             child: Column(
                               children: [
                                 const SizedBox(height: 80),
-                                // Camera Preview (Real-time)
-                                Container(
-                                  width: 320,
-                                  height: 320,
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.black,
-                                  ),
-                                  child: ClipOval(
-                                    child:
-                                        _isCameraInitialized &&
-                                            _cameraController != null
-                                        ? CameraPreview(_cameraController!)
-                                        : const Center(
-                                            child: CircularProgressIndicator(
-                                              color: Colors.white,
-                                            ),
+                                // Camera Preview (Real-time) - Native aspect ratio
+                                _isCameraInitialized &&
+                                        _cameraController != null
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: SizedBox(
+                                          width: 320,
+                                          height:
+                                              320 /
+                                              _cameraController!
+                                                  .value
+                                                  .aspectRatio,
+                                          child: CameraPreview(
+                                            _cameraController!,
                                           ),
-                                  ),
-                                ),
+                                        ),
+                                      )
+                                    : Container(
+                                        width: 320,
+                                        height: 320,
+                                        decoration: BoxDecoration(
+                                          color: Colors.black,
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
                                 const SizedBox(height: 32),
                                 // User Name
                                 Text(
@@ -267,7 +279,7 @@ class _AttendancePageState extends State<AttendancePage> {
                                     ? () => _recordAttendance('Masuk')
                                     : null,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF81C784),
+                                  backgroundColor: const Color(0xFF85E085),
                                   disabledBackgroundColor: Colors.grey[300],
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -296,7 +308,7 @@ class _AttendancePageState extends State<AttendancePage> {
                                     ? () => _recordAttendance('Keluar')
                                     : null,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFEF9A9A),
+                                  backgroundColor: const Color(0xFFFF645C),
                                   disabledBackgroundColor: Colors.grey[300],
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
