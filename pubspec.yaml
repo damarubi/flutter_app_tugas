@@ -39,6 +39,7 @@ dependencies:
   cloud_firestore: ^6.0.3
   firebase_storage: ^13.0.3
   image_picker: ^1.0.4
+  camera: ^0.11.0+2
   geolocator: ^14.0.2
   flutter_map: ^8.2.2
   latlong2: ^0.9.1
