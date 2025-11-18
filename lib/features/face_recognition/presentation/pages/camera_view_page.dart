@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_app_tugas/success_page.dart';
+import 'success_page.dart';
 
 class CameraViewPage extends StatefulWidget {
   const CameraViewPage({super.key});
@@ -65,10 +65,13 @@ class _CameraViewPageState extends State<CameraViewPage> {
       final base64Image = base64Encode(bytes);
 
       // Save the base64 string to Firestore
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-        'faceDataBase64': base64Image,
-        'faceRegistrationTimestamp': FieldValue.serverTimestamp(),
-      });
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({
+            'faceDataBase64': base64Image,
+            'faceRegistrationTimestamp': FieldValue.serverTimestamp(),
+          });
 
       setState(() {
         _isLoading = false;
@@ -98,10 +101,7 @@ class _CameraViewPageState extends State<CameraViewPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Foto Selfie'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Foto Selfie'), centerTitle: true),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -121,19 +121,13 @@ class _CameraViewPageState extends State<CameraViewPage> {
               const Text(
                 'Posisikan Wajah Anda Berada Didalam Frame.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
               const Text(
                 'Silahkan Kedipkan Mata (simulasi)',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.black54,
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.black54),
               ),
               const SizedBox(height: 30),
               if (_isLoading)

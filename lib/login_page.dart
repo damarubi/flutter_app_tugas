@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_app_tugas/main.dart'; // Import MainScreen
+import 'package:flutter_app_tugas/features/home/presentation/pages/main_screen.dart';
 import 'package:flutter_app_tugas/register_page.dart';
 
 class LoginPage extends StatefulWidget {

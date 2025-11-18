@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_app_tugas/login_page.dart';
-import 'package:flutter_app_tugas/face_recognition_page.dart';
+import '../../../auth/presentation/pages/login_page.dart';
+import '../../../face_recognition/presentation/pages/face_recognition_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -33,14 +33,19 @@ class ProfilePage extends StatelessWidget {
         centerTitle: true,
       ),
       body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
-            return const Center(child: Text('Terjadi kesalahan saat memuat data.'));
+            return const Center(
+              child: Text('Terjadi kesalahan saat memuat data.'),
+            );
           }
 
           if (!snapshot.hasData || !snapshot.data!.exists) {
@@ -94,7 +99,9 @@ class ProfilePage extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const FaceRecognitionPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const FaceRecognitionPage(),
+                      ),
                     );
                   },
                 ),
@@ -157,7 +164,10 @@ class ProfilePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8.0),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12.0,
+                    vertical: 4.0,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.green,
                     borderRadius: BorderRadius.circular(20),
@@ -220,10 +230,7 @@ class ProfilePage extends StatelessWidget {
             ),
           ),
           if (value != null)
-            Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -247,10 +254,7 @@ class ProfilePage extends StatelessWidget {
         ),
         child: Row(
           children: <Widget>[
-            Icon(
-              icon,
-              color: isLogout ? Colors.red : Colors.black,
-            ),
+            Icon(icon, color: isLogout ? Colors.red : Colors.black),
             const SizedBox(width: 16.0),
             Expanded(
               child: Text(
