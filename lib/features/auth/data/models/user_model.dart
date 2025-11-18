@@ -1,7 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../domain/entities/user.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
+import '../../domain/entities/user.dart' as entities;
 
-class UserModel extends User {
+class UserModel extends entities.User {
   const UserModel({
     required super.uid,
     required super.email,
@@ -11,7 +11,7 @@ class UserModel extends User {
     super.faceDataBase64,
   });
 
-  factory UserModel.fromFirestore(DocumentSnapshot doc) {
+  factory UserModel.fromFirestore(firestore.DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return UserModel(
       uid: doc.id,
@@ -19,7 +19,7 @@ class UserModel extends User {
       fullName: data['fullName'] ?? '',
       nip: data['nip'] ?? '',
       createdAt: data['createdAt'] != null
-          ? (data['createdAt'] as Timestamp).toDate()
+          ? (data['createdAt'] as firestore.Timestamp).toDate()
           : null,
       faceDataBase64: data['faceDataBase64'],
     );
@@ -31,13 +31,13 @@ class UserModel extends User {
       'fullName': fullName,
       'nip': nip,
       'createdAt': createdAt != null
-          ? Timestamp.fromDate(createdAt!)
-          : FieldValue.serverTimestamp(),
+          ? firestore.Timestamp.fromDate(createdAt!)
+          : firestore.FieldValue.serverTimestamp(),
       if (faceDataBase64 != null) 'faceDataBase64': faceDataBase64,
     };
   }
 
-  factory UserModel.fromEntity(User user) {
+  factory UserModel.fromEntity(entities.User user) {
     return UserModel(
       uid: user.uid,
       email: user.email,

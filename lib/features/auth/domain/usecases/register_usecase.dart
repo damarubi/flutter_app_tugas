@@ -1,12 +1,12 @@
-import '../entities/user.dart';
-import '../repositories/auth_repository.dart';
+import '../entities/user.dart' as entities;
+import '../repositories/auth_repository.dart' as repositories;
 
 class RegisterUseCase {
-  final AuthRepository repository;
+  final repositories.AuthRepository repository;
 
   RegisterUseCase(this.repository);
 
-  Future<User> call({
+  Future<entities.User> call({
     required String fullName,
     required String nip,
     required String password,

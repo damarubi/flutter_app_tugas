@@ -18,9 +18,9 @@ class Validators {
     if (value == null || value.isEmpty) {
       return 'NIP tidak boleh kosong';
     }
-    if (value.length < 5) {
-      return 'NIP minimal 5 karakter';
-    }
+    // if (value.length < 5) {
+    //   return 'NIP minimal 5 karakter';
+    // }
     final nipRegex = RegExp(r'^[0-9]+$');
     if (!nipRegex.hasMatch(value)) {
       return 'NIP harus berupa angka';

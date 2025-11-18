@@ -1,7 +1,7 @@
-import '../repositories/auth_repository.dart';
+import '../repositories/auth_repository.dart' as repositories;
 
 class LogoutUseCase {
-  final AuthRepository repository;
+  final repositories.AuthRepository repository;
 
   LogoutUseCase(this.repository);
 

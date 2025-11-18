@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_colors.dart' as constants;
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -10,6 +10,7 @@ class CustomButton extends StatelessWidget {
   final double? width;
   final double? height;
   final EdgeInsets? padding;
+  final IconData? icon;
 
   const CustomButton({
     super.key,
@@ -21,6 +22,7 @@ class CustomButton extends StatelessWidget {
     this.width,
     this.height,
     this.padding,
+    this.icon,
   });
 
   @override
@@ -31,7 +33,7 @@ class CustomButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor ?? AppColors.primary,
+          backgroundColor: backgroundColor ?? constants.AppColors.primary,
           foregroundColor: textColor ?? Colors.white,
           padding:
               padding ??
@@ -47,13 +49,22 @@ class CustomButton extends StatelessWidget {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : Text(
-                text,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: textColor ?? Colors.white,
-                ),
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, color: textColor ?? Colors.white),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: textColor ?? Colors.white,
+                    ),
+                  ),
+                ],
               ),
       ),
     );
