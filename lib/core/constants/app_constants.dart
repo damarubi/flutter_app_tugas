@@ -13,6 +13,10 @@ class AppConstants {
       'name': 'Kantor Cabang',
       'location': LatLng(-7.805830924332875, 110.38896483238734),
     },
+    {
+      'name': 'Departement IT',
+      'location': LatLng(-7.747265459292401, 110.34368731455378),
+    },
   ];
 
   // API Constants
