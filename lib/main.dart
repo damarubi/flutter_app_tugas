@@ -6,11 +6,13 @@ import 'package:flutter_app_tugas/core/constants/app_strings.dart';
 import 'package:flutter_app_tugas/config/routes/app_router.dart';
 import 'package:flutter_app_tugas/features/auth/presentation/pages/login_page.dart';
 import 'package:flutter_app_tugas/features/home/presentation/pages/main_screen.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await initializeDateFormatting('id_ID', null);
   runApp(const MyApp());
 }
 

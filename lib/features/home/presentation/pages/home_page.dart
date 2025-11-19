@@ -77,10 +77,12 @@ class _HomePageState extends State<HomePage> {
     }
 
     Position position = await Geolocator.getCurrentPosition();
-    setState(() {
-      currentPosition = position;
-      _checkIfInsideGeofence(position);
-    });
+    if (mounted) {
+      setState(() {
+        currentPosition = position;
+        _checkIfInsideGeofence(position);
+      });
+    }
   }
 
   void _checkIfInsideGeofence(Position position) {
@@ -367,7 +369,7 @@ class _HomePageState extends State<HomePage> {
                 return ListTile(
                   leading: Icon(
                     Icons.business,
-                    color: isSelected ? const Color(0xFFFFA778) : Colors.grey,
+                    color: isSelected ? const Color(0xFF0178C5) : Colors.grey,
                   ),
                   title: Text(
                     office['name'] as String,
@@ -375,11 +377,11 @@ class _HomePageState extends State<HomePage> {
                       fontWeight: isSelected
                           ? FontWeight.bold
                           : FontWeight.normal,
-                      color: isSelected ? Colors.orange : Colors.black87,
+                      color: isSelected ? Colors.blue : Colors.black87,
                     ),
                   ),
                   trailing: isSelected
-                      ? const Icon(Icons.check_circle, color: Colors.orange)
+                      ? const Icon(Icons.check_circle, color: Colors.blue)
                       : null,
                   onTap: () {
                     setState(() {

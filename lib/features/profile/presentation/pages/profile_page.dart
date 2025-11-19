@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart' as provider;
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../../face_recognition/presentation/pages/face_recognition_page.dart';
+import '../../../history_attendance/presentation/pages/history_page.dart';
 import '../providers/profile_provider.dart' as providers;
 import '../../data/datasources/profile_remote_datasource.dart' as datasources;
 import '../../data/repositories/profile_repository_impl.dart' as repositories;
@@ -20,6 +21,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late providers.ProfileProvider _profileProvider;
+  String? _tappedButton;
 
   @override
   void initState() {
@@ -43,10 +45,12 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _logout(BuildContext context) async {
+  void _logout() async {
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
     await _profileProvider.logout();
     if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
+      navigator.pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const LoginPage()),
         (Route<dynamic> route) => false,
       );
@@ -112,7 +116,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildDataCard(
                     icon: Icons.person,
                     label: userProfile.fullName,
-                    value: 'NIP: ${userProfile.nip}',
+                    // value: 'NIP: ${userProfile.nip}',
                     iconColor: Colors.black,
                     isBold: true,
                   ),
@@ -131,7 +135,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: Icons.history,
                     label: 'Riwayat Absensi',
                     onTap: () {
-                      // TODO: Navigasi ke halaman Riwayat Absensi
+                      debugPrint('Navigating to HistoryPage');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HistoryPage(),
+                        ),
+                      );
                     },
                   ),
                   _buildActionCard(
@@ -139,6 +149,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: Icons.face_retouching_natural,
                     label: 'Registrasi Face Recognition',
                     onTap: () {
+                      debugPrint('Navigating to FaceRecognitionPage');
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -156,7 +167,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: Icons.logout,
                     label: 'Keluar Akun',
                     isLogout: true,
-                    onTap: () => _logout(context),
+                    onTap: _logout,
                   ),
                   const SizedBox(height: 50),
                   const Center(
@@ -184,8 +195,15 @@ class _ProfilePageState extends State<ProfilePage> {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: Colors.grey[200],
+        color: Color(0xFFF5E6D3),
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: <Widget>[
@@ -274,8 +292,15 @@ class _ProfilePageState extends State<ProfilePage> {
       padding: const EdgeInsets.all(16.0),
       margin: const EdgeInsets.only(bottom: 8.0),
       decoration: BoxDecoration(
-        color: Colors.grey[200],
+        color: Color(0xFFF5E6D3),
         borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: <Widget>[
@@ -303,14 +328,50 @@ class _ProfilePageState extends State<ProfilePage> {
     bool isLogout = false,
     VoidCallback? onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
+    final isTapped = _tappedButton == label;
+
+    return GestureDetector(
+      onTapDown: (_) {
+        setState(() {
+          _tappedButton = label;
+        });
+      },
+      onTapUp: (_) {
+        setState(() {
+          _tappedButton = null;
+        });
+      },
+      onTapCancel: () {
+        setState(() {
+          _tappedButton = null;
+        });
+      },
+      onTap: () {
+        debugPrint('========================================');
+        debugPrint('Action card tapped: $label');
+        debugPrint('onTap is null: ${onTap == null}');
+        debugPrint('========================================');
+        if (onTap != null) {
+          onTap();
+        }
+      },
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.all(16.0),
         margin: const EdgeInsets.only(bottom: 8.0),
         decoration: BoxDecoration(
-          color: isLogout ? Colors.red[100] : Colors.grey[200],
+          color: isTapped
+              ? (isLogout ? Colors.red[200] : Color(0xFFE6CDBA))
+              : (isLogout ? Colors.red[100] : Color(0xFFF5E6D3)),
           borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: <Widget>[
