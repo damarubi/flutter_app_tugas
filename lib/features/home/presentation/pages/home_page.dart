@@ -11,8 +11,9 @@ import '../../domain/usecases/get_dashboard_data_usecase.dart' as usecases;
 import '../../../../shared/services/location_service.dart' as services;
 import 'package:intl/intl.dart';
 import '../../../../map_widget.dart';
-import 'package:latlong2/latlong.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/office_location_service.dart';
+import '../../../../core/models/office_location.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -26,6 +27,8 @@ class _HomePageState extends State<HomePage> {
   int selectedOfficeIndex = 0;
   Position? currentPosition;
   bool isInsideZone = false;
+  List<OfficeLocation> officeLocations = [];
+  final OfficeLocationService _officeLocationService = OfficeLocationService();
 
   late providers.HomeProvider _homeProvider;
 
@@ -88,13 +91,12 @@ class _HomePageState extends State<HomePage> {
   void _checkIfInsideGeofence(Position position) {
     bool insideAnyZone = false;
 
-    for (var office in AppConstants.officeLocations) {
-      final location = office['location'] as LatLng;
+    for (var office in officeLocations) {
       final distance = Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
-        location.latitude,
-        location.longitude,
+        office.location.latitude,
+        office.location.longitude,
       );
 
       if (distance <= AppConstants.geofenceRadius) {
@@ -103,9 +105,11 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
-    setState(() {
-      isInsideZone = insideAnyZone;
-    });
+    if (mounted) {
+      setState(() {
+        isInsideZone = insideAnyZone;
+      });
+    }
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -145,24 +149,70 @@ class _HomePageState extends State<HomePage> {
 
     return provider.ChangeNotifierProvider<providers.HomeProvider>.value(
       value: _homeProvider,
-      child: Scaffold(
-        backgroundColor: Colors.grey[50],
-        appBar: _buildAppBar(),
-        body: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: _buildSearchBar(),
+      child: StreamBuilder<List<OfficeLocation>>(
+        stream: _officeLocationService.getActiveOfficeLocations(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Scaffold(
+              body: Center(
+                child: Text(
+                  'Error loading office locations: ${snapshot.error}',
+                ),
               ),
-              _buildMapSection(),
-              const SizedBox(height: 24),
-              _buildAttendanceStatusSection(user, selectedDateStr),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
+            );
+          }
+
+          final locations = snapshot.data ?? [];
+          if (locations.isEmpty) {
+            return const Scaffold(
+              body: Center(child: Text('No office locations available')),
+            );
+          }
+
+          // Update office locations
+          if (officeLocations.length != locations.length) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  officeLocations = locations;
+                  if (selectedOfficeIndex >= locations.length) {
+                    selectedOfficeIndex = 0;
+                  }
+                });
+                // Recheck geofence if we have current position
+                if (currentPosition != null) {
+                  _checkIfInsideGeofence(currentPosition!);
+                }
+              }
+            });
+          }
+
+          return Scaffold(
+            backgroundColor: Colors.grey[50],
+            appBar: _buildAppBar(),
+            body: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: _buildSearchBar(),
+                  ),
+                  _buildMapSection(),
+                  const SizedBox(height: 24),
+                  _buildAttendanceStatusSection(user, selectedDateStr),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -240,17 +290,19 @@ class _HomePageState extends State<HomePage> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(15),
-                  child: MapWidget(
-                    locations: AppConstants.officeLocations
-                        .map((office) => office['location'] as LatLng)
-                        .toList(),
-                    officeNames: AppConstants.officeLocations
-                        .map((office) => office['name'] as String)
-                        .toList(),
-                    currentPosition: currentPosition,
-                    geofenceRadius: AppConstants.geofenceRadius,
-                    selectedOfficeIndex: selectedOfficeIndex,
-                  ),
+                  child: officeLocations.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
+                      : MapWidget(
+                          locations: officeLocations
+                              .map((office) => office.location)
+                              .toList(),
+                          officeNames: officeLocations
+                              .map((office) => office.name)
+                              .toList(),
+                          currentPosition: currentPosition,
+                          geofenceRadius: AppConstants.geofenceRadius,
+                          selectedOfficeIndex: selectedOfficeIndex,
+                        ),
                 ),
               ),
             ),
@@ -313,8 +365,9 @@ class _HomePageState extends State<HomePage> {
           children: <Widget>[
             Expanded(
               child: Text(
-                AppConstants.officeLocations[selectedOfficeIndex]['name']
-                    as String,
+                officeLocations.isEmpty
+                    ? 'Loading...'
+                    : officeLocations[selectedOfficeIndex].name,
                 style: const TextStyle(
                   color: Colors.black87,
                   fontSize: 14,
@@ -361,7 +414,7 @@ class _HomePageState extends State<HomePage> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
-              ...AppConstants.officeLocations.asMap().entries.map((entry) {
+              ...officeLocations.asMap().entries.map((entry) {
                 final index = entry.key;
                 final office = entry.value;
                 final isSelected = index == selectedOfficeIndex;
@@ -372,7 +425,7 @@ class _HomePageState extends State<HomePage> {
                     color: isSelected ? const Color(0xFF0178C5) : Colors.grey,
                   ),
                   title: Text(
-                    office['name'] as String,
+                    office.name,
                     style: TextStyle(
                       fontWeight: isSelected
                           ? FontWeight.bold

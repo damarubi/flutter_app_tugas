@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:geolocator/geolocator.dart' as geolocator;
-import 'package:latlong2/latlong.dart' as latlong;
 import '../models/attendance_model.dart' as models;
 import '../../../../core/errors/exceptions.dart' as exceptions;
 import '../../../../shared/services/location_service.dart' as services;
 import '../../../../core/constants/app_constants.dart' as constants;
+import '../../../../core/services/office_location_service.dart';
 
 abstract class AttendanceRemoteDataSource {
   Future<Map<String, dynamic>> checkAttendanceStatus();
@@ -17,12 +17,15 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   final firebase_auth.FirebaseAuth firebaseAuth;
   final firestore.FirebaseFirestore firestoreInstance;
   final services.LocationService locationService;
+  final OfficeLocationService officeLocationService;
 
   AttendanceRemoteDataSourceImpl({
     required this.firebaseAuth,
     required firestore.FirebaseFirestore firestore,
     required this.locationService,
-  }) : firestoreInstance = firestore;
+    OfficeLocationService? officeLocationService,
+  }) : firestoreInstance = firestore,
+       officeLocationService = officeLocationService ?? OfficeLocationService();
 
   @override
   Future<Map<String, dynamic>> checkAttendanceStatus() async {
@@ -37,22 +40,28 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       bool isInsideGeofence = false;
       double? closestDistance;
 
-      for (var office in constants.AppConstants.officeLocations) {
-        final location = office['location'] as latlong.LatLng;
-        double distanceInMeters = geolocator.Geolocator.distanceBetween(
-          position.latitude,
-          position.longitude,
-          location.latitude,
-          location.longitude,
-        );
+      // Get office locations from Firestore
+      final officeLocations = await officeLocationService
+          .getActiveOfficeLocations()
+          .first;
 
-        if (distanceInMeters <= constants.AppConstants.geofenceRadius) {
-          isInsideGeofence = true;
-          closestDistance = distanceInMeters;
-          break;
-        } else {
-          if (closestDistance == null || distanceInMeters < closestDistance) {
+      if (officeLocations.isNotEmpty) {
+        for (var office in officeLocations) {
+          double distanceInMeters = geolocator.Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            office.location.latitude,
+            office.location.longitude,
+          );
+
+          if (distanceInMeters <= constants.AppConstants.geofenceRadius) {
+            isInsideGeofence = true;
             closestDistance = distanceInMeters;
+            break;
+          } else {
+            if (closestDistance == null || distanceInMeters < closestDistance) {
+              closestDistance = distanceInMeters;
+            }
           }
         }
       }

@@ -1,10 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'package:geolocator/geolocator.dart';
-import 'package:latlong2/latlong.dart';
 import '../models/dashboard_model.dart' as models;
 import '../../../../shared/services/location_service.dart' as services;
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/office_location_service.dart';
 
 abstract class HomeRemoteDataSource {
   Future<models.DashboardModel> getDashboardData();
@@ -14,12 +14,14 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
   final firebase_auth.FirebaseAuth firebaseAuth;
   final firestore.FirebaseFirestore firestoreInstance;
   final services.LocationService locationService;
+  final OfficeLocationService officeLocationService;
 
   HomeRemoteDataSourceImpl({
     required this.firebaseAuth,
     required this.firestoreInstance,
     required this.locationService,
-  });
+    OfficeLocationService? officeLocationService,
+  }) : officeLocationService = officeLocationService ?? OfficeLocationService();
 
   @override
   Future<models.DashboardModel> getDashboardData() async {
@@ -70,24 +72,34 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
     try {
       final position = await locationService.getCurrentPosition();
 
-      // Check distance to nearest office
-      double minDistance = double.infinity;
-      for (var office in AppConstants.officeLocations) {
-        final location = office['location'] as LatLng;
-        final officeDistance = Geolocator.distanceBetween(
-          position.latitude,
-          position.longitude,
-          location.latitude,
-          location.longitude,
-        );
+      // Get office locations from Firestore
+      final officeLocations = await officeLocationService
+          .getActiveOfficeLocations()
+          .first;
 
-        if (officeDistance < minDistance) {
-          minDistance = officeDistance;
+      if (officeLocations.isEmpty) {
+        // No office locations available
+        distance = null;
+        inOfficeArea = false;
+      } else {
+        // Check distance to nearest office
+        double minDistance = double.infinity;
+        for (var office in officeLocations) {
+          final officeDistance = Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            office.location.latitude,
+            office.location.longitude,
+          );
+
+          if (officeDistance < minDistance) {
+            minDistance = officeDistance;
+          }
         }
-      }
 
-      distance = minDistance;
-      inOfficeArea = minDistance <= AppConstants.geofenceRadius;
+        distance = minDistance;
+        inOfficeArea = minDistance <= AppConstants.geofenceRadius;
+      }
     } catch (e) {
       // Location service error, keep distance as null
       distance = null;

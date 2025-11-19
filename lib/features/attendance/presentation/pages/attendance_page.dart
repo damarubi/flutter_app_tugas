@@ -171,31 +171,51 @@ class _AttendancePageState extends State<AttendancePage> {
                             padding: const EdgeInsets.all(24.0),
                             child: Column(
                               children: [
-                                const SizedBox(height: 80),
-                                // Camera Preview (Real-time) - Native aspect ratio
+                                const SizedBox(height: 40),
+                                // Camera Preview (Real-time) - Circular
                                 _isCameraInitialized &&
                                         _cameraController != null
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(20),
-                                        child: SizedBox(
-                                          width: 320,
-                                          height:
-                                              320 /
-                                              _cameraController!
-                                                  .value
-                                                  .aspectRatio,
-                                          child: CameraPreview(
-                                            _cameraController!,
+                                    ? Center(
+                                        child: Container(
+                                          width: 340,
+                                          height: 340,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.grey[300]!,
+                                              width: 4,
+                                            ),
+                                          ),
+                                          child: ClipOval(
+                                            child: OverflowBox(
+                                              alignment: Alignment.center,
+                                              child: FittedBox(
+                                                fit: BoxFit.cover,
+                                                child: SizedBox(
+                                                  width: 340,
+                                                  height:
+                                                      340 *
+                                                      _cameraController!
+                                                          .value
+                                                          .aspectRatio,
+                                                  child: CameraPreview(
+                                                    _cameraController!,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       )
                                     : Container(
-                                        width: 320,
-                                        height: 320,
+                                        width: 340,
+                                        height: 340,
                                         decoration: BoxDecoration(
                                           color: Colors.black,
-                                          borderRadius: BorderRadius.circular(
-                                            20,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Colors.grey[300]!,
+                                            width: 4,
                                           ),
                                         ),
                                         child: const Center(
