@@ -176,7 +176,11 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileCard(
-      String fullName, String nip, bool isActive, String? faceDataBase64) {
+    String fullName,
+    String nip,
+    bool isActive,
+    String? faceDataBase64,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
@@ -189,8 +193,7 @@ class _ProfilePageState extends State<ProfilePage> {
           CircleAvatar(
             radius: 30,
             backgroundColor: Colors.grey,
-            backgroundImage: faceDataBase64 != null &&
-                    faceDataBase64.isNotEmpty
+            backgroundImage: faceDataBase64 != null && faceDataBase64.isNotEmpty
                 ? MemoryImage(
                     base64Decode(
                       faceDataBase64.contains(',')
