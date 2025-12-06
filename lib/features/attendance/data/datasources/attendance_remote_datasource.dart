@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:geolocator/geolocator.dart' as geolocator;
 import '../models/attendance_model.dart' as models;
 import '../../../../core/errors/exceptions.dart' as exceptions;
@@ -8,19 +7,17 @@ import '../../../../core/constants/app_constants.dart' as constants;
 import '../../../../core/services/office_location_service.dart';
 
 abstract class AttendanceRemoteDataSource {
-  Future<Map<String, dynamic>> checkAttendanceStatus();
-  Future<void> recordAttendance({required String type});
-  Future<List<models.AttendanceModel>> getAttendanceHistory();
+  Future<Map<String, dynamic>> checkAttendanceStatus({required String uid});
+  Future<void> recordAttendance({required String uid, required String email, required String type});
+  Future<List<models.AttendanceModel>> getAttendanceHistory({required String uid});
 }
 
 class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
-  final firebase_auth.FirebaseAuth firebaseAuth;
   final firestore.FirebaseFirestore firestoreInstance;
   final services.LocationService locationService;
   final OfficeLocationService officeLocationService;
 
   AttendanceRemoteDataSourceImpl({
-    required this.firebaseAuth,
     required firestore.FirebaseFirestore firestore,
     required this.locationService,
     OfficeLocationService? officeLocationService,
@@ -28,13 +25,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
        officeLocationService = officeLocationService ?? OfficeLocationService();
 
   @override
-  Future<Map<String, dynamic>> checkAttendanceStatus() async {
+  Future<Map<String, dynamic>> checkAttendanceStatus({required String uid}) async {
     try {
-      final user = firebaseAuth.currentUser;
-      if (user == null) {
-        throw exceptions.AuthException('User tidak terautentikasi.');
-      }
-
       // 1. Check Geofencing
       final position = await locationService.getCurrentPosition();
       bool isInsideGeofence = false;
@@ -42,8 +34,7 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
       // Get office locations from Firestore
       final officeLocations = await officeLocationService
-          .getActiveOfficeLocations()
-          .first;
+          .getActiveOfficeLocationsOneShot();
 
       if (officeLocations.isNotEmpty) {
         for (var office in officeLocations) {
@@ -69,12 +60,13 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       // 2. Check Face Data
       final doc = await firestoreInstance
           .collection('users')
-          .doc(user.uid)
+          .doc(uid)
           .get();
-      bool hasFaceData =
-          doc.exists &&
-          doc.data() != null &&
-          doc.data()!['faceDataBase64'] != null;
+      
+      final data = doc.data();
+      bool hasFaceData = doc.exists && 
+          data != null && 
+          (data['faceDataBase64'] != null && (data['faceDataBase64'] as String).isNotEmpty);
 
       return {
         'isInOfficeArea': isInsideGeofence,
@@ -89,13 +81,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   }
 
   @override
-  Future<void> recordAttendance({required String type}) async {
+  Future<void> recordAttendance({required String uid, required String email, required String type}) async {
     try {
-      final user = firebaseAuth.currentUser;
-      if (user == null) {
-        throw exceptions.AuthException('User tidak terautentikasi.');
-      }
-
       final position = await locationService.getCurrentPosition();
       final now = DateTime.now();
       final today = models.AttendanceModel.formatDate(now);
@@ -103,13 +90,13 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
       final attendanceRef = firestoreInstance
           .collection('users')
-          .doc(user.uid)
+          .doc(uid)
           .collection('attendance')
           .doc(today);
 
       await attendanceRef.set({
-        'userId': user.uid,
-        'email': user.email,
+        'userId': uid,
+        'email': email,
         'tanggal': today,
         'timestamp': firestore.FieldValue.serverTimestamp(),
         'lat': position.latitude,
@@ -125,16 +112,11 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   }
 
   @override
-  Future<List<models.AttendanceModel>> getAttendanceHistory() async {
+  Future<List<models.AttendanceModel>> getAttendanceHistory({required String uid}) async {
     try {
-      final user = firebaseAuth.currentUser;
-      if (user == null) {
-        throw exceptions.AuthException('User tidak terautentikasi.');
-      }
-
       final querySnapshot = await firestoreInstance
           .collection('users')
-          .doc(user.uid)
+          .doc(uid)
           .collection('attendance')
           .orderBy('tanggal', descending: true)
           .limit(30)

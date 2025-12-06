@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../core/services/session_service.dart';
 import 'camera_view_page.dart';
 
 class FaceRecognitionPage extends StatelessWidget {
   const FaceRecognitionPage({super.key});
 
   Future<bool> _checkFaceData() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final sessionService = SessionService();
+    final user = await sessionService.getSession();
     if (user == null) return false;
 
     final doc = await FirebaseFirestore.instance
@@ -16,7 +17,7 @@ class FaceRecognitionPage extends StatelessWidget {
         .get();
     return doc.exists &&
         doc.data() != null &&
-        doc.data()!['faceDataUrl'] != null;
+        doc.data()!['faceDataBase64'] != null;
   }
 
   @override

@@ -7,6 +7,9 @@ class UserModel extends entities.User {
     required super.email,
     required super.fullName,
     required super.nip,
+    super.passwordHash,
+    super.isActive = true,
+    super.role = 'user',
     super.createdAt,
     super.faceDataBase64,
   });
@@ -18,6 +21,9 @@ class UserModel extends entities.User {
       email: data['email'] ?? '',
       fullName: data['fullName'] ?? '',
       nip: data['nip'] ?? '',
+      passwordHash: data['passwordHash'],
+      isActive: data['isActive'] ?? true,
+      role: data['role'] ?? 'user',
       createdAt: data['createdAt'] != null
           ? (data['createdAt'] as firestore.Timestamp).toDate()
           : null,
@@ -30,6 +36,9 @@ class UserModel extends entities.User {
       'email': email,
       'fullName': fullName,
       'nip': nip,
+      'passwordHash': passwordHash,
+      'isActive': isActive,
+      'role': role,
       'createdAt': createdAt != null
           ? firestore.Timestamp.fromDate(createdAt!)
           : firestore.FieldValue.serverTimestamp(),
@@ -43,6 +52,9 @@ class UserModel extends entities.User {
       email: user.email,
       fullName: user.fullName,
       nip: user.nip,
+      passwordHash: user.passwordHash,
+      isActive: user.isActive,
+      role: user.role,
       createdAt: user.createdAt,
       faceDataBase64: user.faceDataBase64,
     );

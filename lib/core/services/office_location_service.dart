@@ -7,6 +7,23 @@ class OfficeLocationService {
   OfficeLocationService({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
+  /// Get all active office locations (One-time fetch)
+  Future<List<OfficeLocation>> getActiveOfficeLocationsOneShot() async {
+    try {
+      final snapshot = await _firestore
+          .collection('officeLocations')
+          .where('isActive', isEqualTo: true)
+          .get();
+      
+      return snapshot.docs
+          .map((doc) => OfficeLocation.fromFirestore(doc.data(), doc.id))
+          .toList();
+    } catch (e) {
+      print('Error getting active office locations: $e');
+      return [];
+    }
+  }
+
   /// Get all active office locations
   Stream<List<OfficeLocation>> getActiveOfficeLocations() {
     return _firestore

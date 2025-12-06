@@ -3,6 +3,9 @@ class User {
   final String email;
   final String fullName;
   final String nip;
+  final String? passwordHash;
+  final bool isActive;
+  final String role;
   final DateTime? createdAt;
   final String? faceDataBase64;
 
@@ -11,6 +14,9 @@ class User {
     required this.email,
     required this.fullName,
     required this.nip,
+    this.passwordHash,
+    this.isActive = true,
+    this.role = 'user',
     this.createdAt,
     this.faceDataBase64,
   });

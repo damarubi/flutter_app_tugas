@@ -3,14 +3,23 @@ import '../../domain/entities/attendance_status.dart' as entities;
 import '../../domain/repositories/attendance_repository.dart' as repositories;
 import '../datasources/attendance_remote_datasource.dart' as datasources;
 
+import '../../../../core/services/session_service.dart';
+
 class AttendanceRepositoryImpl implements repositories.AttendanceRepository {
   final datasources.AttendanceRemoteDataSource remoteDataSource;
+  final SessionService sessionService;
 
-  AttendanceRepositoryImpl({required this.remoteDataSource});
+  AttendanceRepositoryImpl({
+    required this.remoteDataSource,
+    required this.sessionService,
+  });
 
   @override
   Future<entities.AttendanceStatus> checkAttendanceStatus() async {
-    final result = await remoteDataSource.checkAttendanceStatus();
+    final user = await sessionService.getSession();
+    if (user == null) throw Exception('User session not found');
+
+    final result = await remoteDataSource.checkAttendanceStatus(uid: user.uid);
 
     return entities.AttendanceStatus(
       isInOfficeArea: result['isInOfficeArea'] as bool,
@@ -22,11 +31,21 @@ class AttendanceRepositoryImpl implements repositories.AttendanceRepository {
 
   @override
   Future<void> recordAttendance({required String type}) async {
-    await remoteDataSource.recordAttendance(type: type);
+    final user = await sessionService.getSession();
+    if (user == null) throw Exception('User session not found');
+
+    await remoteDataSource.recordAttendance(
+      uid: user.uid,
+      email: user.email,
+      type: type,
+    );
   }
 
   @override
   Future<List<entities.Attendance>> getAttendanceHistory() async {
-    return await remoteDataSource.getAttendanceHistory();
+    final user = await sessionService.getSession();
+    if (user == null) throw Exception('User session not found');
+
+    return await remoteDataSource.getAttendanceHistory(uid: user.uid);
   }
 }

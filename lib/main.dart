@@ -1,48 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_app_tugas/core/theme/app_theme.dart';
-import 'package:flutter_app_tugas/core/constants/app_strings.dart';
-import 'package:flutter_app_tugas/config/routes/app_router.dart';
-import 'package:flutter_app_tugas/features/auth/presentation/pages/login_page.dart';
-import 'package:flutter_app_tugas/features/home/presentation/pages/main_screen.dart';
-import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/date_symbol_data_local.dart'; // Import intl
+import 'core/constants/app_routes.dart';
+import 'core/services/session_service.dart'; // Import SessionService
+import 'features/auth/presentation/pages/login_page.dart';
+import 'features/auth/presentation/pages/register_page.dart';
+import 'features/main/presentation/pages/main_page.dart'; // Pastikan path ini benar
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  
+  // 1. Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Initialize Date Formatting
   await initializeDateFormatting('id_ID', null);
-  runApp(const MyApp());
+
+  // 2. Initialize Session Service (PENTING!)
+  final sessionService = SessionService();
+  await sessionService.init();
+
+  // 3. Cek apakah user sudah login
+  final bool isLoggedIn = await sessionService.isSessionExists();
+
+  runApp(MyApp(isLoggedIn: isLoggedIn));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool isLoggedIn;
+
+  const MyApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: AppStrings.appName,
-      theme: AppTheme.lightTheme,
-      onGenerateRoute: AppRouter.generateRoute,
-      // Use StreamBuilder to check authentication status
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          if (snapshot.hasData) {
-            // If user is logged in, show main screen with BottomNavigationBar
-            return const MainScreen();
-          }
-          // If not logged in, redirect to login page
-          return const LoginPage();
-        },
+      title: 'Absensi App',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        useMaterial3: true,
       ),
+      debugShowCheckedModeBanner: false,
+      // 4. Tentukan halaman awal berdasarkan status login
+      initialRoute: isLoggedIn ? AppRoutes.main : AppRoutes.login,
+      routes: {
+        AppRoutes.login: (context) => const LoginPage(),
+        AppRoutes.register: (context) => const RegisterPage(),
+        AppRoutes.main: (context) => const MainPage(),
+      },
     );
   }
 }

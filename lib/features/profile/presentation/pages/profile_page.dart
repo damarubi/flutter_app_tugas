@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart' as provider;
-import '../../../auth/presentation/pages/login_page.dart';
+import '../../../../core/constants/app_routes.dart';
+import '../../../../core/services/session_service.dart';
 import '../../../face_recognition/presentation/pages/face_recognition_page.dart';
 import '../../../history_attendance/presentation/pages/history_page.dart';
 import '../providers/profile_provider.dart' as providers;
@@ -21,7 +21,6 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late providers.ProfileProvider _profileProvider;
-  String? _tappedButton;
 
   @override
   void initState() {
@@ -32,11 +31,11 @@ class _ProfilePageState extends State<ProfilePage> {
   void _initializeProvider() {
     // Initialize dependencies
     final dataSource = datasources.ProfileRemoteDataSourceImpl(
-      firebaseAuth: FirebaseAuth.instance,
       firestore: FirebaseFirestore.instance,
     );
     final repository = repositories.ProfileRepositoryImpl(
       remoteDataSource: dataSource,
+      sessionService: SessionService(),
     );
 
     _profileProvider = providers.ProfileProvider(
@@ -50,20 +49,15 @@ class _ProfilePageState extends State<ProfilePage> {
     final navigator = Navigator.of(context);
     await _profileProvider.logout();
     if (mounted) {
-      navigator.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const LoginPage()),
-        (Route<dynamic> route) => false,
+      navigator.pushNamedAndRemoveUntil(
+        AppRoutes.login,
+        (route) => false,
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return const LoginPage();
-    }
-
     return provider.ChangeNotifierProvider.value(
       value: _profileProvider,
       child: Scaffold(
@@ -328,70 +322,52 @@ class _ProfilePageState extends State<ProfilePage> {
     bool isLogout = false,
     VoidCallback? onTap,
   }) {
-    final isTapped = _tappedButton == label;
-
-    return GestureDetector(
-      onTapDown: (_) {
-        setState(() {
-          _tappedButton = label;
-        });
-      },
-      onTapUp: (_) {
-        setState(() {
-          _tappedButton = null;
-        });
-      },
-      onTapCancel: () {
-        setState(() {
-          _tappedButton = null;
-        });
-      },
-      onTap: () {
-        debugPrint('========================================');
-        debugPrint('Action card tapped: $label');
-        debugPrint('onTap is null: ${onTap == null}');
-        debugPrint('========================================');
-        if (onTap != null) {
-          onTap();
-        }
-      },
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(16.0),
-        margin: const EdgeInsets.only(bottom: 8.0),
-        decoration: BoxDecoration(
-          color: isTapped
-              ? (isLogout ? Colors.red[200] : Color(0xFFE6CDBA))
-              : (isLogout ? Colors.red[100] : Color(0xFFF5E6D3)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8.0),
+      decoration: BoxDecoration(
+        color: isLogout ? Colors.red[100] : const Color(0xFFF5E6D3),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: <Widget>[
-            Icon(icon, color: isLogout ? Colors.red : Colors.black),
-            const SizedBox(width: 16.0),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
+          splashColor: isLogout ? Colors.red[200] : const Color(0xFFE6CDBA),
+          highlightColor: isLogout
+              ? Colors.red[200]!.withValues(alpha: 0.5)
+              : const Color(0xFFE6CDBA).withValues(alpha: 0.5),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: <Widget>[
+                Icon(icon, color: isLogout ? Colors.red : Colors.black),
+                const SizedBox(width: 16.0),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isLogout ? Colors.red : Colors.black,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
                   color: isLogout ? Colors.red : Colors.black,
                 ),
-              ),
+              ],
             ),
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: isLogout ? Colors.red : Colors.black,
-            ),
-          ],
+          ),
         ),
       ),
     );

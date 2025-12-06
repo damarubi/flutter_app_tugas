@@ -30,6 +30,7 @@ class LocationService {
 
     return await geolocator.Geolocator.getCurrentPosition(
       desiredAccuracy: geolocator.LocationAccuracy.high,
+      timeLimit: const Duration(seconds: 10),
     );
   }
 

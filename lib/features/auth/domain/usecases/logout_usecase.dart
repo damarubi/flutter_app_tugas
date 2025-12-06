@@ -1,11 +1,18 @@
-import '../repositories/auth_repository.dart' as repositories;
+import '../repositories/auth_repository.dart';
 
 class LogoutUseCase {
-  final repositories.AuthRepository repository;
+  final AuthRepository repository;
 
   LogoutUseCase(this.repository);
 
-  Future<void> call() {
-    return repository.logout();
+  /// Logout dari aplikasi
+  ///
+  /// Fungsi:
+  ///   - Clear session dari local storage
+  ///   - Clear data user yang tersimpan
+  ///
+  /// Exception: AuthException jika logout gagal
+  Future<void> call() async {
+    return await repository.logout();
   }
 }

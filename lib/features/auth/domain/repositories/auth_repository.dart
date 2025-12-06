@@ -1,13 +1,22 @@
-import '../entities/user.dart' as entities;
+import '../entities/user.dart';
 
 abstract class AuthRepository {
-  Future<entities.User> login({required String nip, required String password});
-  Future<entities.User> register({
+  // Login dengan NIP
+  Future<User> login({
+    required String nip,
+    required String password,
+  });
+
+  // Register dengan NIP
+  Future<User> register({
     required String fullName,
     required String nip,
     required String password,
   });
+
+  // Logout
   Future<void> logout();
-  Future<entities.User?> getCurrentUser();
-  Stream<entities.User?> get authStateChanges;
+
+  // Get Current User by UID
+  Future<User?> getCurrentUser({String? uid});
 }

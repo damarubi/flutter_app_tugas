@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'package:geolocator/geolocator.dart';
 import '../models/dashboard_model.dart' as models;
@@ -7,33 +6,26 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/office_location_service.dart';
 
 abstract class HomeRemoteDataSource {
-  Future<models.DashboardModel> getDashboardData();
+  Future<models.DashboardModel> getDashboardData({required String uid});
 }
 
 class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
-  final firebase_auth.FirebaseAuth firebaseAuth;
   final firestore.FirebaseFirestore firestoreInstance;
   final services.LocationService locationService;
   final OfficeLocationService officeLocationService;
 
   HomeRemoteDataSourceImpl({
-    required this.firebaseAuth,
     required this.firestoreInstance,
     required this.locationService,
     OfficeLocationService? officeLocationService,
   }) : officeLocationService = officeLocationService ?? OfficeLocationService();
 
   @override
-  Future<models.DashboardModel> getDashboardData() async {
-    final user = firebaseAuth.currentUser;
-    if (user == null) {
-      throw Exception('User tidak login.');
-    }
-
+  Future<models.DashboardModel> getDashboardData({required String uid}) async {
     // 1. Get User Data
     final userDoc = await firestoreInstance
         .collection('users')
-        .doc(user.uid)
+        .doc(uid)
         .get();
     if (!userDoc.exists || userDoc.data() == null) {
       throw Exception('Data user tidak ditemukan.');
@@ -44,7 +36,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
     final today = _formatDate(DateTime.now());
     final attendanceDoc = await firestoreInstance
         .collection('users')
-        .doc(user.uid)
+        .doc(uid)
         .collection('attendance')
         .doc(today)
         .get();
@@ -57,7 +49,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
 
     final monthlySnapshot = await firestoreInstance
         .collection('users')
-        .doc(user.uid)
+        .doc(uid)
         .collection('attendance')
         .where('tanggal', isGreaterThanOrEqualTo: _formatDate(startOfMonth))
         .where('tanggal', isLessThanOrEqualTo: _formatDate(endOfMonth))
