@@ -67,13 +67,15 @@ class _CameraViewPageState extends State<CameraViewPage> {
       final base64Image = base64Encode(bytes);
 
       // Save the base64 string to Firestore
+      // Menggunakan set dengan merge: true untuk menangani dokumen yang dibuat dari Admin (field ada tapi kosong)
+      // maupun dari App (field belum ada). Ini juga menghindari error jika dokumen dianggap tidak valid untuk update.
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
-          .update({
+          .set({
             'faceDataBase64': base64Image,
             'faceRegistrationTimestamp': FieldValue.serverTimestamp(),
-          });
+          }, SetOptions(merge: true));
 
       setState(() {
         _isLoading = false;

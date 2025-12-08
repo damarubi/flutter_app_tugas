@@ -78,14 +78,42 @@ class _ProfilePageState extends State<ProfilePage> {
             }
 
             if (snapshot.hasError) {
-              return const Center(
-                child: Text('Terjadi kesalahan saat memuat data.'),
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Terjadi kesalahan saat memuat data.'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _logout,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Keluar'),
+                    ),
+                  ],
+                ),
               );
             }
 
             if (!snapshot.hasData) {
-              return const Center(
-                child: Text('Data pengguna tidak ditemukan.'),
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Data pengguna tidak ditemukan.'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _logout,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Keluar'),
+                    ),
+                  ],
+                ),
               );
             }
 

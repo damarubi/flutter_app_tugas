@@ -15,9 +15,12 @@ class FaceRecognitionPage extends StatelessWidget {
         .collection('users')
         .doc(user.uid)
         .get();
-    return doc.exists &&
-        doc.data() != null &&
-        doc.data()!['faceDataBase64'] != null;
+    
+    if (!doc.exists || doc.data() == null) return false;
+    
+    final data = doc.data()!;
+    return data['faceDataBase64'] != null && 
+           data['faceDataBase64'].toString().isNotEmpty;
   }
 
   @override

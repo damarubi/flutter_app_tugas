@@ -16,6 +16,15 @@ class UserModel extends entities.User {
 
   factory UserModel.fromFirestore(firestore.DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    
+    // Helper function untuk menangani format tanggal yang berbeda
+    DateTime? parseDate(dynamic value) {
+      if (value == null) return null;
+      if (value is firestore.Timestamp) return value.toDate();
+      if (value is String) return DateTime.tryParse(value);
+      return null;
+    }
+
     return UserModel(
       uid: doc.id,
       email: data['email'] ?? '',
@@ -24,9 +33,8 @@ class UserModel extends entities.User {
       passwordHash: data['passwordHash'],
       isActive: data['isActive'] ?? true,
       role: data['role'] ?? 'user',
-      createdAt: data['createdAt'] != null
-          ? (data['createdAt'] as firestore.Timestamp).toDate()
-          : null,
+      // Gunakan helper function di sini
+      createdAt: parseDate(data['createdAt']),
       faceDataBase64: data['faceDataBase64'],
     );
   }
