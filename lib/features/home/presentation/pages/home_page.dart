@@ -30,23 +30,26 @@ class _HomePageState extends State<HomePage> {
   bool isInsideZone = false;
   List<OfficeLocation> officeLocations = [];
   final OfficeLocationService _officeLocationService = OfficeLocationService();
-  final SessionService _sessionService = SessionService();
+  final SessionService _sessionService = SessionService.instance;
   UserModel? _currentUser;
+  bool _isDisposed = false;
 
   late providers.HomeProvider _homeProvider;
 
   @override
   void initState() {
     super.initState();
+    _isDisposed = false;
     _loadSession();
     _initializeProvider();
     _checkLocationPermissionAndGetPosition();
   }
 
   Future<void> _loadSession() async {
+    if (_isDisposed) return;
     await _sessionService.init();
     final user = await _sessionService.getSession();
-    if (mounted) {
+    if (mounted && !_isDisposed) {
       setState(() {
         _currentUser = user;
       });
@@ -61,7 +64,7 @@ class _HomePageState extends State<HomePage> {
     );
     final repository = repositories.HomeRepositoryImpl(
       remoteDataSource: remoteDataSource,
-      sessionService: SessionService(),
+      sessionService: SessionService.instance,
     );
     final getDashboardUseCase = usecases.GetDashboardDataUseCase(repository);
 
@@ -73,28 +76,30 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _checkLocationPermissionAndGetPosition() async {
+    if (_isDisposed) return;
+
     bool serviceEnabled;
     LocationPermission permission;
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
+    if (!serviceEnabled || _isDisposed) {
       return;
     }
 
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
+      if (permission == LocationPermission.denied || _isDisposed) {
         return;
       }
     }
 
-    if (permission == LocationPermission.deniedForever) {
+    if (permission == LocationPermission.deniedForever || _isDisposed) {
       return;
     }
 
     Position position = await Geolocator.getCurrentPosition();
-    if (mounted) {
+    if (mounted && !_isDisposed) {
       setState(() {
         currentPosition = position;
         _checkIfInsideGeofence(position);
@@ -103,7 +108,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _checkIfInsideGeofence(Position position) {
-    if (officeLocations.isEmpty) return;
+    if (officeLocations.isEmpty || _isDisposed) return;
 
     final selectedOffice = officeLocations[selectedOfficeIndex];
     final distance = Geolocator.distanceBetween(
@@ -115,7 +120,7 @@ class _HomePageState extends State<HomePage> {
 
     final inside = distance <= AppConstants.geofenceRadius;
 
-    if (mounted) {
+    if (mounted && !_isDisposed) {
       setState(() {
         isInsideZone = inside;
       });
@@ -151,9 +156,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     if (_currentUser == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final selectedDateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
@@ -466,10 +469,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildAttendanceStatusSection(
-    UserModel user,
-    String selectedDateStr,
-  ) {
+  Widget _buildAttendanceStatusSection(UserModel user, String selectedDateStr) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Container(
@@ -708,5 +708,11 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
   }
 }

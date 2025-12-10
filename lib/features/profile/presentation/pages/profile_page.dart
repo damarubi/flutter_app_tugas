@@ -35,7 +35,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
     final repository = repositories.ProfileRepositoryImpl(
       remoteDataSource: dataSource,
-      sessionService: SessionService(),
+      sessionService: SessionService.instance,
     );
 
     _profileProvider = providers.ProfileProvider(

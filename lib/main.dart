@@ -10,17 +10,22 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // 1. Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    // Firebase might already be initialized on hot restart
+    debugPrint('Firebase initialization: $e');
+  }
 
   // Initialize Date Formatting
   await initializeDateFormatting('id_ID', null);
 
   // 2. Initialize Session Service (PENTING!)
-  final sessionService = SessionService();
+  final sessionService = SessionService.instance;
   await sessionService.init();
 
   // 3. Cek apakah user sudah login

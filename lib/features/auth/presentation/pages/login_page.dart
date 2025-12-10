@@ -33,8 +33,8 @@ class _LoginPageState extends State<LoginPage> {
   void initState() {
     super.initState();
     // Initialize services
-    _sessionService = SessionService();
-    
+    _sessionService = SessionService.instance;
+
     // Initialize use case with dependencies
     final authDataSource = AuthRemoteDataSourceImpl(
       firestore: FirebaseFirestore.instance,
@@ -70,7 +70,7 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       // 2. Session sudah disimpan otomatis di repository
-      
+
       if (mounted) {
         // 3. Navigate ke main page
         Navigator.of(context).pushReplacementNamed(AppRoutes.main);
@@ -91,10 +91,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(AppStrings.login),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text(AppStrings.login), centerTitle: true),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),

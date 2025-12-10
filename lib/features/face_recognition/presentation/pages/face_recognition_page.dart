@@ -7,7 +7,8 @@ class FaceRecognitionPage extends StatelessWidget {
   const FaceRecognitionPage({super.key});
 
   Future<bool> _checkFaceData() async {
-    final sessionService = SessionService();
+    final sessionService = SessionService.instance;
+    await sessionService.init();
     final user = await sessionService.getSession();
     if (user == null) return false;
 
@@ -15,12 +16,12 @@ class FaceRecognitionPage extends StatelessWidget {
         .collection('users')
         .doc(user.uid)
         .get();
-    
+
     if (!doc.exists || doc.data() == null) return false;
-    
+
     final data = doc.data()!;
-    return data['faceDataBase64'] != null && 
-           data['faceDataBase64'].toString().isNotEmpty;
+    return data['faceDataBase64'] != null &&
+        data['faceDataBase64'].toString().isNotEmpty;
   }
 
   @override

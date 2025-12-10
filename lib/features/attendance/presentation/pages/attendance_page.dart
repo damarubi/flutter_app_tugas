@@ -30,15 +30,19 @@ class _AttendancePageState extends State<AttendancePage> {
   CameraController? _cameraController;
   bool _isCameraInitialized = false;
   bool _isProcessing = false;
+  bool _isDisposed = false;
 
   @override
   void initState() {
     super.initState();
+    _isDisposed = false;
     _initializeProvider();
     _loadUserData();
     _initializeCamera();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkStatus();
+      if (!_isDisposed) {
+        _checkStatus();
+      }
     });
   }
 
@@ -51,7 +55,7 @@ class _AttendancePageState extends State<AttendancePage> {
     );
     final repository = repositories.AttendanceRepositoryImpl(
       remoteDataSource: dataSource,
-      sessionService: SessionService(),
+      sessionService: SessionService.instance,
     );
 
     _attendanceProvider = providers.AttendanceProvider(
@@ -61,11 +65,11 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   Future<void> _loadUserData() async {
-    final sessionService = SessionService();
+    final sessionService = SessionService.instance;
     await sessionService.init();
     final userModel = await sessionService.getSession();
 
-    if (userModel != null && mounted) {
+    if (userModel != null && mounted && !_isDisposed) {
       setState(() {
         _currentUser = entities.User(
           uid: userModel.uid,
@@ -152,9 +156,11 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   Future<void> _initializeCamera() async {
+    if (_isDisposed) return;
+
     try {
       final cameras = await availableCameras();
-      if (cameras.isEmpty) return;
+      if (cameras.isEmpty || _isDisposed) return;
 
       // Pilih front camera untuk face recognition
       final frontCamera = cameras.firstWhere(
@@ -163,7 +169,12 @@ class _AttendancePageState extends State<AttendancePage> {
       );
 
       // Dispose controller lama jika ada
-      await _cameraController?.dispose().catchError((_) {});
+      if (_cameraController != null) {
+        await _cameraController?.dispose().catchError((_) {});
+        _cameraController = null;
+      }
+
+      if (_isDisposed) return;
 
       _cameraController = CameraController(
         frontCamera,
@@ -174,13 +185,18 @@ class _AttendancePageState extends State<AttendancePage> {
 
       await _cameraController!.initialize();
 
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         setState(() {
           _isCameraInitialized = true;
         });
       }
     } catch (e) {
       debugPrint('Error initializing camera: $e');
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isCameraInitialized = false;
+        });
+      }
     }
   }
 
@@ -193,7 +209,9 @@ class _AttendancePageState extends State<AttendancePage> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _cameraController?.dispose().catchError((_) {});
+    _cameraController = null;
     super.dispose();
   }
 

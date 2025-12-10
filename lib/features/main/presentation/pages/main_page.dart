@@ -15,18 +15,21 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
   UserModel? _currentUser;
-  final _sessionService = SessionService();
+  final _sessionService = SessionService.instance;
+  bool _isDisposed = false;
 
   @override
   void initState() {
     super.initState();
+    _isDisposed = false;
     _loadSession();
   }
 
   Future<void> _loadSession() async {
+    if (_isDisposed) return;
     await _sessionService.init();
     final user = await _sessionService.getSession();
-    if (mounted) {
+    if (mounted && !_isDisposed) {
       setState(() {
         _currentUser = user;
       });
@@ -34,17 +37,22 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _onItemTapped(int index) {
+    if (_isDisposed) return;
     setState(() {
       _selectedIndex = index;
     });
   }
 
   @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (_currentUser == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final List<Widget> _pages = [
@@ -54,24 +62,12 @@ class _MainPageState extends State<MainPage> {
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.camera_alt),
-            label: 'Absen',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profil',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.camera_alt), label: 'Absen'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue,
