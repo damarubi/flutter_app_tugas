@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart' as provider;
 import 'package:intl/intl.dart';
+import '../../../../core/services/session_service.dart';
 import '../providers/history_provider.dart' as providers;
 import '../../data/datasources/history_remote_datasource.dart' as datasources;
 import '../../data/repositories/history_repository_impl.dart' as repositories;
@@ -27,11 +27,11 @@ class _HistoryPageState extends State<HistoryPage> {
 
   void _initializeProvider() {
     final dataSource = datasources.HistoryRemoteDataSourceImpl(
-      firebaseAuth: FirebaseAuth.instance,
       firestore: FirebaseFirestore.instance,
     );
     final repository = repositories.HistoryRepositoryImpl(
       remoteDataSource: dataSource,
+      sessionService: SessionService(),
     );
 
     _historyProvider = providers.HistoryProvider(

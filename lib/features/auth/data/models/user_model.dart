@@ -7,20 +7,34 @@ class UserModel extends entities.User {
     required super.email,
     required super.fullName,
     required super.nip,
+    super.passwordHash,
+    super.isActive = true,
+    super.role = 'user',
     super.createdAt,
     super.faceDataBase64,
   });
 
   factory UserModel.fromFirestore(firestore.DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    
+    // Helper function untuk menangani format tanggal yang berbeda
+    DateTime? parseDate(dynamic value) {
+      if (value == null) return null;
+      if (value is firestore.Timestamp) return value.toDate();
+      if (value is String) return DateTime.tryParse(value);
+      return null;
+    }
+
     return UserModel(
       uid: doc.id,
       email: data['email'] ?? '',
       fullName: data['fullName'] ?? '',
       nip: data['nip'] ?? '',
-      createdAt: data['createdAt'] != null
-          ? (data['createdAt'] as firestore.Timestamp).toDate()
-          : null,
+      passwordHash: data['passwordHash'],
+      isActive: data['isActive'] ?? true,
+      role: data['role'] ?? 'user',
+      // Gunakan helper function di sini
+      createdAt: parseDate(data['createdAt']),
       faceDataBase64: data['faceDataBase64'],
     );
   }
@@ -30,6 +44,9 @@ class UserModel extends entities.User {
       'email': email,
       'fullName': fullName,
       'nip': nip,
+      'passwordHash': passwordHash,
+      'isActive': isActive,
+      'role': role,
       'createdAt': createdAt != null
           ? firestore.Timestamp.fromDate(createdAt!)
           : firestore.FieldValue.serverTimestamp(),
@@ -43,6 +60,9 @@ class UserModel extends entities.User {
       email: user.email,
       fullName: user.fullName,
       nip: user.nip,
+      passwordHash: user.passwordHash,
+      isActive: user.isActive,
+      role: user.role,
       createdAt: user.createdAt,
       faceDataBase64: user.faceDataBase64,
     );

@@ -1,38 +1,35 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/attendance_record_model.dart';
 
 abstract class HistoryRemoteDataSource {
-  Stream<List<AttendanceRecordModel>> getAttendanceHistory(int year, int month);
-  Future<Map<String, int>> getMonthlyStats(int year, int month);
+  Stream<List<AttendanceRecordModel>> getAttendanceHistory(
+    String uid,
+    int year,
+    int month,
+  );
+  Future<Map<String, int>> getMonthlyStats(String uid, int year, int month);
 }
 
 class HistoryRemoteDataSourceImpl implements HistoryRemoteDataSource {
-  final FirebaseAuth firebaseAuth;
   final FirebaseFirestore firestore;
 
   HistoryRemoteDataSourceImpl({
-    required this.firebaseAuth,
     required this.firestore,
   });
 
   @override
   Stream<List<AttendanceRecordModel>> getAttendanceHistory(
+    String uid,
     int year,
     int month,
   ) {
-    final userId = firebaseAuth.currentUser?.uid;
-    if (userId == null) {
-      return Stream.value([]);
-    }
-
     // Start and end of month
     final startDate = DateTime(year, month, 1);
     final endDate = DateTime(year, month + 1, 0, 23, 59, 59);
 
     return firestore
         .collection('users')
-        .doc(userId)
+        .doc(uid)
         .collection('attendance')
         .snapshots()
         .map((snapshot) {
@@ -59,19 +56,18 @@ class HistoryRemoteDataSourceImpl implements HistoryRemoteDataSource {
   }
 
   @override
-  Future<Map<String, int>> getMonthlyStats(int year, int month) async {
-    final userId = firebaseAuth.currentUser?.uid;
-    if (userId == null) {
-      return {'hadir': 0, 'tidakHadir': 0};
-    }
-
+  Future<Map<String, int>> getMonthlyStats(
+    String uid,
+    int year,
+    int month,
+  ) async {
     final now = DateTime.now();
     final startDate = DateTime(year, month, 1);
     final endDate = DateTime(year, month + 1, 0, 23, 59, 59);
 
     final snapshot = await firestore
         .collection('users')
-        .doc(userId)
+        .doc(uid)
         .collection('attendance')
         .get();
 

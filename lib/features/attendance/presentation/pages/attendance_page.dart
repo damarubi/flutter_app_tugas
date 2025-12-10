@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart' as provider;
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'package:camera/camera.dart';
 import '../providers/attendance_provider.dart' as providers;
@@ -12,6 +11,7 @@ import '../../domain/usecases/check_attendance_status_usecase.dart' as usecases;
 import '../../domain/usecases/record_attendance_usecase.dart' as usecases;
 import '../../../../shared/services/location_service.dart' as services;
 import '../../../auth/domain/entities/user.dart' as entities;
+import '../../../../core/services/session_service.dart';
 
 class AttendancePage extends StatefulWidget {
   const AttendancePage({super.key});
@@ -31,20 +31,23 @@ class _AttendancePageState extends State<AttendancePage> {
     super.initState();
     _initializeProvider();
     _loadUserData();
-    _checkStatus();
     _initializeCamera();
+    // Panggil checkStatus setelah frame pertama dirender
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkStatus();
+    });
   }
 
   void _initializeProvider() {
     // Initialize dependencies
     final locationService = services.LocationService();
     final dataSource = datasources.AttendanceRemoteDataSourceImpl(
-      firebaseAuth: firebase_auth.FirebaseAuth.instance,
       firestore: firestore.FirebaseFirestore.instance,
       locationService: locationService,
     );
     final repository = repositories.AttendanceRepositoryImpl(
       remoteDataSource: dataSource,
+      sessionService: SessionService(),
     );
 
     _attendanceProvider = providers.AttendanceProvider(
@@ -54,24 +57,22 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   Future<void> _loadUserData() async {
-    final user = firebase_auth.FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final doc = await firestore.FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      if (doc.exists && mounted) {
-        final data = doc.data()!;
-        setState(() {
-          _currentUser = entities.User(
-            uid: user.uid,
-            email: data['email'] ?? '',
-            fullName: data['fullName'] ?? '',
-            nip: data['nip'] ?? '',
-            faceDataBase64: data['faceDataBase64'],
-          );
-        });
-      }
+    final sessionService = SessionService();
+    await sessionService.init();
+    final userModel = await sessionService.getSession();
+    
+    if (userModel != null && mounted) {
+      setState(() {
+        _currentUser = entities.User(
+          uid: userModel.uid,
+          email: userModel.email,
+          fullName: userModel.fullName,
+          nip: userModel.nip,
+          faceDataBase64: userModel.faceDataBase64,
+          role: userModel.role,
+          isActive: userModel.isActive,
+        );
+      });
     }
   }
 

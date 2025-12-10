@@ -1,7 +1,6 @@
 ﻿// import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart' as provider;
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'package:geolocator/geolocator.dart';
 import '../providers/home_provider.dart' as providers;
@@ -14,6 +13,8 @@ import '../../../../map_widget.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/office_location_service.dart';
 import '../../../../core/models/office_location.dart';
+import '../../../../core/services/session_service.dart';
+import '../../../auth/data/models/user_model.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -29,25 +30,38 @@ class _HomePageState extends State<HomePage> {
   bool isInsideZone = false;
   List<OfficeLocation> officeLocations = [];
   final OfficeLocationService _officeLocationService = OfficeLocationService();
+  final SessionService _sessionService = SessionService();
+  UserModel? _currentUser;
 
   late providers.HomeProvider _homeProvider;
 
   @override
   void initState() {
     super.initState();
+    _loadSession();
     _initializeProvider();
     _checkLocationPermissionAndGetPosition();
+  }
+
+  Future<void> _loadSession() async {
+    await _sessionService.init();
+    final user = await _sessionService.getSession();
+    if (mounted) {
+      setState(() {
+        _currentUser = user;
+      });
+    }
   }
 
   void _initializeProvider() {
     final locationService = services.LocationService();
     final remoteDataSource = datasources.HomeRemoteDataSourceImpl(
-      firebaseAuth: firebase_auth.FirebaseAuth.instance,
       firestoreInstance: firestore.FirebaseFirestore.instance,
       locationService: locationService,
     );
     final repository = repositories.HomeRepositoryImpl(
       remoteDataSource: remoteDataSource,
+      sessionService: SessionService(),
     );
     final getDashboardUseCase = usecases.GetDashboardDataUseCase(repository);
 
@@ -89,25 +103,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _checkIfInsideGeofence(Position position) {
-    bool insideAnyZone = false;
+    if (officeLocations.isEmpty) return;
 
-    for (var office in officeLocations) {
-      final distance = Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        office.location.latitude,
-        office.location.longitude,
-      );
+    final selectedOffice = officeLocations[selectedOfficeIndex];
+    final distance = Geolocator.distanceBetween(
+      position.latitude,
+      position.longitude,
+      selectedOffice.location.latitude,
+      selectedOffice.location.longitude,
+    );
 
-      if (distance <= AppConstants.geofenceRadius) {
-        insideAnyZone = true;
-        break;
-      }
-    }
+    final inside = distance <= AppConstants.geofenceRadius;
 
     if (mounted) {
       setState(() {
-        isInsideZone = insideAnyZone;
+        isInsideZone = inside;
       });
     }
   }
@@ -140,9 +150,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final user = firebase_auth.FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return const Center(child: Text('User not logged in'));
+    if (_currentUser == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     final selectedDateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
@@ -206,7 +217,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   _buildMapSection(),
                   const SizedBox(height: 24),
-                  _buildAttendanceStatusSection(user, selectedDateStr),
+                  _buildAttendanceStatusSection(_currentUser!, selectedDateStr),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -319,8 +330,8 @@ class _HomePageState extends State<HomePage> {
               child: Row(
                 children: [
                   Icon(
-                    isInsideZone ? Icons.check_circle : Icons.info,
-                    color: isInsideZone ? Colors.blue : Colors.grey,
+                    isInsideZone ? Icons.check_circle : Icons.cancel,
+                    color: isInsideZone ? Colors.blue : Colors.red,
                     size: 24,
                   ),
                   const SizedBox(width: 12),
@@ -330,7 +341,7 @@ class _HomePageState extends State<HomePage> {
                           ? 'You are inside the allowed zone'
                           : 'You are outside the allowed zone',
                       style: TextStyle(
-                        color: isInsideZone ? Colors.black87 : Colors.grey[700],
+                        color: isInsideZone ? Colors.black87 : Colors.red,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -440,6 +451,9 @@ class _HomePageState extends State<HomePage> {
                     setState(() {
                       selectedOfficeIndex = index;
                     });
+                    if (currentPosition != null) {
+                      _checkIfInsideGeofence(currentPosition!);
+                    }
                     Navigator.pop(context);
                   },
                 );
@@ -453,7 +467,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildAttendanceStatusSection(
-    firebase_auth.User user,
+    UserModel user,
     String selectedDateStr,
   ) {
     return Padding(

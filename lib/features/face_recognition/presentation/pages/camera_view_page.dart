@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../core/services/session_service.dart';
 import 'success_page.dart';
 
 class CameraViewPage extends StatefulWidget {
@@ -49,7 +49,9 @@ class _CameraViewPageState extends State<CameraViewPage> {
   }
 
   Future<void> _saveImageToFirestore(File imageFile) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final sessionService = SessionService();
+    final user = await sessionService.getSession();
+    
     if (user == null) {
       setState(() {
         _errorMessage = 'Pengguna tidak login.';
@@ -65,13 +67,15 @@ class _CameraViewPageState extends State<CameraViewPage> {
       final base64Image = base64Encode(bytes);
 
       // Save the base64 string to Firestore
+      // Menggunakan set dengan merge: true untuk menangani dokumen yang dibuat dari Admin (field ada tapi kosong)
+      // maupun dari App (field belum ada). Ini juga menghindari error jika dokumen dianggap tidak valid untuk update.
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
-          .update({
+          .set({
             'faceDataBase64': base64Image,
             'faceRegistrationTimestamp': FieldValue.serverTimestamp(),
-          });
+          }, SetOptions(merge: true));
 
       setState(() {
         _isLoading = false;

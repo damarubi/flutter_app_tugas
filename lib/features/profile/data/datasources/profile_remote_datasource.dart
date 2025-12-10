@@ -1,29 +1,21 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_profile_model.dart';
 
 abstract class ProfileRemoteDataSource {
-  Stream<UserProfileModel> getUserProfileStream();
+  Stream<UserProfileModel> getUserProfileStream({required String uid});
   Future<void> logout();
 }
 
 class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
-  final FirebaseAuth firebaseAuth;
   final FirebaseFirestore firestore;
 
   ProfileRemoteDataSourceImpl({
-    required this.firebaseAuth,
     required this.firestore,
   });
 
   @override
-  Stream<UserProfileModel> getUserProfileStream() {
-    final user = firebaseAuth.currentUser;
-    if (user == null) {
-      throw Exception('User not authenticated');
-    }
-
-    return firestore.collection('users').doc(user.uid).snapshots().map((
+  Stream<UserProfileModel> getUserProfileStream({required String uid}) {
+    return firestore.collection('users').doc(uid).snapshots().map((
       snapshot,
     ) {
       if (!snapshot.exists) {
@@ -31,12 +23,12 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       }
 
       final data = snapshot.data()!;
-      return UserProfileModel.fromFirestore(user.uid, data);
+      return UserProfileModel.fromFirestore(uid, data);
     });
   }
 
   @override
   Future<void> logout() async {
-    await firebaseAuth.signOut();
+    // Logout handled by AuthRepository
   }
 }

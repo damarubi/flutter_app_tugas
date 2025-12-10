@@ -1,12 +1,27 @@
-import '../entities/user.dart' as entities;
-import '../repositories/auth_repository.dart' as repositories;
+import '../entities/user.dart';
+import '../repositories/auth_repository.dart';
 
 class LoginUseCase {
-  final repositories.AuthRepository repository;
+  final AuthRepository repository;
 
   LoginUseCase(this.repository);
 
-  Future<entities.User> call({required String nip, required String password}) {
-    return repository.login(nip: nip, password: password);
+  /// Login dengan NIP dan password
+  ///
+  /// Input:
+  ///   - nip: NIP pengguna
+  ///   - password: password pengguna
+  ///
+  /// Output: User object jika login berhasil
+  ///
+  /// Exception: AuthException jika login gagal
+  Future<User> call({
+    required String nip,
+    required String password,
+  }) async {
+    return await repository.login(
+      nip: nip,
+      password: password,
+    );
   }
 }

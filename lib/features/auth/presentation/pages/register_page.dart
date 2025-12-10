@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_routes.dart';
+import '../../../../core/errors/exceptions.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../../core/services/session_service.dart';
 import '../../../../shared/widgets/custom_button.dart';
 import '../../../../shared/widgets/custom_text_field.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
@@ -28,16 +29,22 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _errorMessage;
 
   late final RegisterUseCase _registerUseCase;
+  late final SessionService _sessionService;
 
   @override
   void initState() {
     super.initState();
+    // Initialize services
+    _sessionService = SessionService();
+
     // Initialize use case with dependencies
     final authDataSource = AuthRemoteDataSourceImpl(
-      firebaseAuth: firebase_auth.FirebaseAuth.instance,
       firestore: FirebaseFirestore.instance,
     );
-    final authRepository = AuthRepositoryImpl(remoteDataSource: authDataSource);
+    final authRepository = AuthRepositoryImpl(
+      remoteDataSource: authDataSource,
+      sessionService: _sessionService,
+    );
     _registerUseCase = RegisterUseCase(authRepository);
   }
 
@@ -59,9 +66,11 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      await _registerUseCase(
-        fullName: _fullNameController.text,
-        nip: _nipController.text,
+      // 1. Call register use case
+      // (Session otomatis disimpan di repository layer)
+      await _registerUseCase.call(
+        fullName: _fullNameController.text.trim(),
+        nip: _nipController.text.trim(),
         password: _passwordController.text,
       );
 
@@ -69,11 +78,17 @@ class _RegisterPageState extends State<RegisterPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text(AppStrings.registerSuccess)),
         );
+        // 2. Navigate ke main page karena sudah auto-login
         Navigator.of(context).pushReplacementNamed(AppRoutes.main);
       }
+    } on AuthException catch (e) {
+      setState(() {
+        _errorMessage = e.message;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
         _isLoading = false;
       });
     }
@@ -143,13 +158,25 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 const SizedBox(height: 8),
 
+                // Error Message
                 if (_errorMessage != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Colors.red, fontSize: 14),
-                      textAlign: TextAlign.center,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        border: Border.all(color: Colors.red.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _errorMessage!,
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
 
