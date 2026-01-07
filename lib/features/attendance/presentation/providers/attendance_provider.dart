@@ -2,14 +2,17 @@ import 'package:flutter/foundation.dart';
 import '../../domain/entities/attendance_status.dart' as entities;
 import '../../domain/usecases/check_attendance_status_usecase.dart' as usecases;
 import '../../domain/usecases/record_attendance_usecase.dart' as usecases;
+import '../../domain/repositories/attendance_repository.dart' as repositories;
 
 class AttendanceProvider extends ChangeNotifier {
   final usecases.CheckAttendanceStatusUseCase checkStatusUseCase;
   final usecases.RecordAttendanceUseCase recordAttendanceUseCase;
+  final repositories.AttendanceRepository repository;
 
   AttendanceProvider({
     required this.checkStatusUseCase,
     required this.recordAttendanceUseCase,
+    required this.repository,
   });
 
   entities.AttendanceStatus? _attendanceStatus;
@@ -82,5 +85,9 @@ class AttendanceProvider extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  Future<Map<String, dynamic>?> getTodayAttendance() async {
+    return await repository.getTodayAttendance();
   }
 }

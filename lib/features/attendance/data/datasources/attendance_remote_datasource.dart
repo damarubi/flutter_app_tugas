@@ -8,8 +8,15 @@ import '../../../../core/services/office_location_service.dart';
 
 abstract class AttendanceRemoteDataSource {
   Future<Map<String, dynamic>> checkAttendanceStatus({required String uid});
-  Future<void> recordAttendance({required String uid, required String email, required String type});
-  Future<List<models.AttendanceModel>> getAttendanceHistory({required String uid});
+  Future<void> recordAttendance({
+    required String uid,
+    required String email,
+    required String type,
+  });
+  Future<List<models.AttendanceModel>> getAttendanceHistory({
+    required String uid,
+  });
+  Future<Map<String, dynamic>?> getTodayAttendance({required String uid});
 }
 
 class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
@@ -25,7 +32,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
        officeLocationService = officeLocationService ?? OfficeLocationService();
 
   @override
-  Future<Map<String, dynamic>> checkAttendanceStatus({required String uid}) async {
+  Future<Map<String, dynamic>> checkAttendanceStatus({
+    required String uid,
+  }) async {
     try {
       // 1. Check Geofencing
       final position = await locationService.getCurrentPosition();
@@ -58,15 +67,14 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       }
 
       // 2. Check Face Data
-      final doc = await firestoreInstance
-          .collection('users')
-          .doc(uid)
-          .get();
-      
+      final doc = await firestoreInstance.collection('users').doc(uid).get();
+
       final data = doc.data();
-      bool hasFaceData = doc.exists && 
-          data != null && 
-          (data['faceDataBase64'] != null && (data['faceDataBase64'] as String).isNotEmpty);
+      bool hasFaceData =
+          doc.exists &&
+          data != null &&
+          (data['faceDataBase64'] != null &&
+              (data['faceDataBase64'] as String).isNotEmpty);
 
       return {
         'isInOfficeArea': isInsideGeofence,
@@ -81,7 +89,11 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   }
 
   @override
-  Future<void> recordAttendance({required String uid, required String email, required String type}) async {
+  Future<void> recordAttendance({
+    required String uid,
+    required String email,
+    required String type,
+  }) async {
     try {
       final position = await locationService.getCurrentPosition();
       final now = DateTime.now();
@@ -112,7 +124,9 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   }
 
   @override
-  Future<List<models.AttendanceModel>> getAttendanceHistory({required String uid}) async {
+  Future<List<models.AttendanceModel>> getAttendanceHistory({
+    required String uid,
+  }) async {
     try {
       final querySnapshot = await firestoreInstance
           .collection('users')
@@ -125,6 +139,32 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
       return querySnapshot.docs
           .map((doc) => models.AttendanceModel.fromJson(doc.data(), doc.id))
           .toList();
+    } on firestore.FirebaseException catch (e) {
+      throw exceptions.ServerException(e.message ?? 'Firestore error');
+    } catch (e) {
+      throw exceptions.ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getTodayAttendance({
+    required String uid,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final today = models.AttendanceModel.formatDate(now);
+
+      final attendanceDoc = await firestoreInstance
+          .collection('users')
+          .doc(uid)
+          .collection('attendance')
+          .doc(today)
+          .get();
+
+      if (attendanceDoc.exists) {
+        return attendanceDoc.data();
+      }
+      return null;
     } on firestore.FirebaseException catch (e) {
       throw exceptions.ServerException(e.message ?? 'Firestore error');
     } catch (e) {

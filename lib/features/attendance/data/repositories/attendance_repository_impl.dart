@@ -48,4 +48,12 @@ class AttendanceRepositoryImpl implements repositories.AttendanceRepository {
 
     return await remoteDataSource.getAttendanceHistory(uid: user.uid);
   }
+
+  @override
+  Future<Map<String, dynamic>?> getTodayAttendance() async {
+    final user = await sessionService.getSession();
+    if (user == null) throw Exception('User session not found');
+
+    return await remoteDataSource.getTodayAttendance(uid: user.uid);
+  }
 }

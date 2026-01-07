@@ -61,6 +61,7 @@ class _AttendancePageState extends State<AttendancePage> {
     _attendanceProvider = providers.AttendanceProvider(
       checkStatusUseCase: usecases.CheckAttendanceStatusUseCase(repository),
       recordAttendanceUseCase: usecases.RecordAttendanceUseCase(repository),
+      repository: repository,
     );
   }
 
@@ -218,6 +219,57 @@ class _AttendancePageState extends State<AttendancePage> {
   Future<void> _recordAttendance(String type) async {
     if (_isProcessing) return;
 
+    // Validasi waktu
+    final now = DateTime.now();
+    final currentTime = TimeOfDay(hour: now.hour, minute: now.minute);
+
+    if (type == 'Masuk') {
+      // Clock in hanya bisa dilakukan antara jam 06:30 - 07:30
+      final minClockInTime = const TimeOfDay(hour: 6, minute: 30);
+      final maxClockInTime = const TimeOfDay(hour: 7, minute: 30);
+
+      final currentMinutes = currentTime.hour * 60 + currentTime.minute;
+      final minMinutes = minClockInTime.hour * 60 + minClockInTime.minute;
+      final maxMinutes = maxClockInTime.hour * 60 + maxClockInTime.minute;
+
+      if (currentMinutes < minMinutes || currentMinutes > maxMinutes) {
+        _showError('Clock in hanya dapat dilakukan antara jam 06:30 - 07:30');
+        return;
+      }
+    } else if (type == 'Keluar') {
+      // Clock out hanya bisa dilakukan antara jam 15:30 - 16:30
+      final minClockOutTime = const TimeOfDay(hour: 15, minute: 30);
+      final maxClockOutTime = const TimeOfDay(hour: 16, minute: 30);
+
+      final currentMinutes = currentTime.hour * 60 + currentTime.minute;
+      final minMinutes = minClockOutTime.hour * 60 + minClockOutTime.minute;
+      final maxMinutes = maxClockOutTime.hour * 60 + maxClockOutTime.minute;
+
+      if (currentMinutes < minMinutes || currentMinutes > maxMinutes) {
+        _showError('Clock out hanya dapat dilakukan antara jam 15:30 - 16:30');
+        return;
+      }
+    }
+
+    // Cek apakah user sudah melakukan absensi hari ini
+    try {
+      final todayAttendance = await _attendanceProvider.getTodayAttendance();
+
+      if (todayAttendance != null) {
+        if (type == 'Masuk' && todayAttendance['MasukTime'] != null) {
+          _showError('Anda sudah melakukan clock in hari ini');
+          return;
+        }
+        if (type == 'Keluar' && todayAttendance['KeluarTime'] != null) {
+          _showError('Anda sudah melakukan clock out hari ini');
+          return;
+        }
+      }
+    } catch (e) {
+      _showError('Gagal memeriksa status absensi: ${e.toString()}');
+      return;
+    }
+
     _showLoading('Memvalidasi wajah...');
 
     final faceResult = await _captureAndValidateFace();
@@ -256,24 +308,32 @@ class _AttendancePageState extends State<AttendancePage> {
       return;
     }
 
-    // Ekstrak NIP dan Nama dari format API: "NIP_Nama_Angka"
-    // Contoh: "5230411042_Ahmad Fata Dani Adnan_01" -> NIP: "5230411042", Nama: "Ahmad Fata Dani Adnan", Angka: "01"
+    // Ekstrak NIP dan Nama dari format API
+    // Format yang didukung:
+    // - "NIP_Nama" -> NIP: "NIP", Nama: "Nama"
+    // - "NIP_Nama_Angka" -> NIP: "NIP", Nama: "Nama"
+    // - "NIP_Nama_Bagian1_Bagian2_Angka" -> NIP: "NIP", Nama: "Nama_Bagian1_Bagian2"
     String extractedName = faceResult.nama!.trim();
     String? extractedNip;
 
     // Jika nama mengandung underscore, ambil NIP dan nama
     if (extractedName.contains('_')) {
       final parts = extractedName.split('_');
-      if (parts.length >= 3) {
+      if (parts.length >= 2) {
         // Bagian pertama adalah NIP
         extractedNip = parts[0];
 
-        // Bagian tengah adalah nama
-        if (parts.length == 3) {
+        // Sisanya adalah nama (bisa mengandung underscore atau spasi)
+        if (parts.length == 2) {
+          // Format: "NIP_Nama"
+          extractedName = parts[1];
+        } else if (parts.length == 3) {
+          // Format: "NIP_Nama_Angka" -> ambil bagian tengah
           extractedName = parts[1];
         } else if (parts.length > 3) {
-          // Jika lebih dari 3 bagian, gabungkan semua kecuali first dan last
-          extractedName = parts.sublist(1, parts.length - 1).join('_');
+          // Format: "NIP_Nama_Bagian1_Bagian2_Angka"
+          // Gabungkan semua kecuali first dan last
+          extractedName = parts.sublist(1, parts.length - 1).join(' ');
         }
       }
     }
@@ -286,7 +346,7 @@ class _AttendancePageState extends State<AttendancePage> {
     if (detectedName != loginName) {
       _showError(
         'Wajah tidak sesuai dengan akun login!\n'
-        // 'Terdeteksi: $extractedName\n'
+        'Terdeteksi: $extractedName\n'
         'Akun login: ${_currentUser!.fullName}',
       );
       return;
