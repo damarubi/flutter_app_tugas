@@ -6,9 +6,16 @@ class SessionService {
   static const String _sessionKey = 'user_session';
   SharedPreferences? _prefs;
 
+  // Singleton pattern untuk mencegah multiple instances
+  static final SessionService _instance = SessionService._internal();
+  factory SessionService() => _instance;
+  static SessionService get instance => _instance;
+
+  SessionService._internal();
+
   /// Initialize SessionService
   Future<void> init() async {
-    _prefs = await SharedPreferences.getInstance();
+    _prefs ??= await SharedPreferences.getInstance();
   }
 
   /// Helper untuk memastikan prefs sudah terinisialisasi

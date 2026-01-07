@@ -35,7 +35,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
     final repository = repositories.ProfileRepositoryImpl(
       remoteDataSource: dataSource,
-      sessionService: SessionService(),
+      sessionService: SessionService.instance,
     );
 
     _profileProvider = providers.ProfileProvider(
@@ -49,10 +49,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final navigator = Navigator.of(context);
     await _profileProvider.logout();
     if (mounted) {
-      navigator.pushNamedAndRemoveUntil(
-        AppRoutes.login,
-        (route) => false,
-      );
+      navigator.pushNamedAndRemoveUntil(AppRoutes.login, (route) => false);
     }
   }
 

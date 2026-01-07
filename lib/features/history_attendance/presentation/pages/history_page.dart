@@ -31,7 +31,7 @@ class _HistoryPageState extends State<HistoryPage> {
     );
     final repository = repositories.HistoryRepositoryImpl(
       remoteDataSource: dataSource,
-      sessionService: SessionService(),
+      sessionService: SessionService.instance,
     );
 
     _historyProvider = providers.HistoryProvider(

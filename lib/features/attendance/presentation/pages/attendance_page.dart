@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart' as provider;
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
@@ -12,6 +13,8 @@ import '../../domain/usecases/record_attendance_usecase.dart' as usecases;
 import '../../../../shared/services/location_service.dart' as services;
 import '../../../auth/domain/entities/user.dart' as entities;
 import '../../../../core/services/session_service.dart';
+import '../../../../core/services/face_recognition_service.dart';
+import '../../../../core/models/face_recognition_response.dart';
 
 class AttendancePage extends StatefulWidget {
   const AttendancePage({super.key});
@@ -22,19 +25,24 @@ class AttendancePage extends StatefulWidget {
 
 class _AttendancePageState extends State<AttendancePage> {
   late providers.AttendanceProvider _attendanceProvider;
+  final FaceRecognitionService _faceService = FaceRecognitionService();
   entities.User? _currentUser;
   CameraController? _cameraController;
   bool _isCameraInitialized = false;
+  bool _isProcessing = false;
+  bool _isDisposed = false;
 
   @override
   void initState() {
     super.initState();
+    _isDisposed = false;
     _initializeProvider();
     _loadUserData();
     _initializeCamera();
-    // Panggil checkStatus setelah frame pertama dirender
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkStatus();
+      if (!_isDisposed) {
+        _checkStatus();
+      }
     });
   }
 
@@ -47,7 +55,7 @@ class _AttendancePageState extends State<AttendancePage> {
     );
     final repository = repositories.AttendanceRepositoryImpl(
       remoteDataSource: dataSource,
-      sessionService: SessionService(),
+      sessionService: SessionService.instance,
     );
 
     _attendanceProvider = providers.AttendanceProvider(
@@ -57,11 +65,11 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   Future<void> _loadUserData() async {
-    final sessionService = SessionService();
+    final sessionService = SessionService.instance;
     await sessionService.init();
     final userModel = await sessionService.getSession();
-    
-    if (userModel != null && mounted) {
+
+    if (userModel != null && mounted && !_isDisposed) {
       setState(() {
         _currentUser = entities.User(
           uid: userModel.uid,
@@ -80,10 +88,79 @@ class _AttendancePageState extends State<AttendancePage> {
     await _attendanceProvider.checkStatus();
   }
 
+  /// Capture foto dan validasi dengan Face Recognition API
+  Future<FaceRecognitionResponse?> _captureAndValidateFace() async {
+    if (!mounted || _isProcessing) return null;
+
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      _showError('Kamera belum siap');
+      return null;
+    }
+
+    if (_cameraController!.value.isTakingPicture) return null;
+
+    setState(() => _isProcessing = true);
+
+    XFile? photo;
+    File? imageFile;
+
+    try {
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      if (!mounted || _cameraController == null) {
+        throw Exception('Kamera tidak tersedia');
+      }
+
+      photo = await _cameraController!.takePicture().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => throw Exception('Timeout saat mengambil foto'),
+      );
+
+      imageFile = File(photo.path);
+
+      if (!await imageFile.exists()) {
+        throw Exception('File foto tidak ditemukan');
+      }
+
+      if (!mounted) return null;
+
+      final response = await _faceService
+          .validateAttendance(imageFile)
+          .timeout(const Duration(seconds: 30));
+
+      return FaceRecognitionResponse.fromJson(response);
+    } catch (e) {
+      if (mounted) {
+        _showError(
+          e.toString().contains('TimeoutException')
+              ? 'Timeout: API terlalu lama merespon'
+              : e.toString().contains('Timeout saat mengambil foto')
+              ? 'Gagal mengambil foto, coba lagi'
+              : 'Gagal memproses foto',
+        );
+      }
+      return null;
+    } finally {
+      try {
+        if (imageFile != null && await imageFile.exists()) {
+          await imageFile.delete();
+        }
+      } catch (_) {}
+
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
+
   Future<void> _initializeCamera() async {
+    if (_isDisposed) return;
+
     try {
       final cameras = await availableCameras();
-      if (cameras.isEmpty) return;
+      if (cameras.isEmpty || _isDisposed) return;
 
       // Pilih front camera untuk face recognition
       final frontCamera = cameras.firstWhere(
@@ -91,53 +168,246 @@ class _AttendancePageState extends State<AttendancePage> {
         orElse: () => cameras.first,
       );
 
+      // Dispose controller lama jika ada
+      if (_cameraController != null) {
+        await _cameraController?.dispose().catchError((_) {});
+        _cameraController = null;
+      }
+
+      if (_isDisposed) return;
+
       _cameraController = CameraController(
         frontCamera,
         ResolutionPreset.medium,
         enableAudio: false,
+        imageFormatGroup: ImageFormatGroup.jpeg, // Prevent buffer overflow
       );
 
       await _cameraController!.initialize();
 
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         setState(() {
           _isCameraInitialized = true;
         });
       }
     } catch (e) {
       debugPrint('Error initializing camera: $e');
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isCameraInitialized = false;
+        });
+      }
     }
   }
 
   @override
+  void deactivate() {
+    // Pause preview saat page tidak aktif
+    _cameraController?.pausePreview().catchError((_) {});
+    super.deactivate();
+  }
+
+  @override
   void dispose() {
-    _cameraController?.dispose();
+    _isDisposed = true;
+    _cameraController?.dispose().catchError((_) {});
+    _cameraController = null;
     super.dispose();
   }
 
   Future<void> _recordAttendance(String type) async {
+    if (_isProcessing) return;
+
+    _showLoading('Memvalidasi wajah...');
+
+    final faceResult = await _captureAndValidateFace();
+
+    if (!mounted) return;
+
+    Navigator.of(context).pop();
+
+    if (faceResult == null) {
+      _showError('Gagal mengambil atau memvalidasi foto');
+      return;
+    }
+
+    final bool isFaceRecognized =
+        faceResult.status == 'sukses' &&
+        faceResult.dikenali == true &&
+        faceResult.nama != null &&
+        faceResult.nama != 'Tidak Dikenal' &&
+        faceResult.nama!.trim().isNotEmpty;
+
+    if (!isFaceRecognized) {
+      if (faceResult.status == 'gagal') {
+        _showError('Wajah tidak terdeteksi. Posisikan wajah dengan benar');
+      } else if (faceResult.nama == 'Tidak Dikenal' ||
+          faceResult.dikenali == false) {
+        _showError('Wajah tidak terdaftar dalam database');
+      } else {
+        _showError('Validasi gagal. Silakan coba lagi');
+      }
+      return;
+    }
+
+    _showLoading('Menyimpan absensi...');
+
     final success = await _attendanceProvider.recordAttendance(type);
 
-    if (mounted) {
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Absensi $type berhasil!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        await _checkStatus(); // Refresh status
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _attendanceProvider.errorMessage ?? 'Gagal merekam absensi',
-            ),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    if (!mounted) return;
+
+    Navigator.of(context).pop();
+
+    if (success) {
+      _showSuccessDialog(
+        type: type,
+        userName: faceResult.nama!,
+        similarity: ((1 - faceResult.jarakKemiripan!) * 100).toStringAsFixed(1),
+      );
+      await _checkStatus();
+    } else {
+      _showError(_attendanceProvider.errorMessage ?? 'Gagal merekam absensi');
     }
+  }
+
+  void _showLoading(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Card(
+          margin: const EdgeInsets.all(40),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red.shade700,
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  void _showSuccessDialog({
+    required String type,
+    required String userName,
+    required String similarity,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 32),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text('Absensi Berhasil!', style: TextStyle(fontSize: 18)),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow('Tipe', type),
+            const Divider(),
+            _buildDetailRow('Nama', userName),
+            _buildDetailRow('Kemiripan', '$similarity%'),
+            _buildDetailRow('Waktu', _formatTime(DateTime.now())),
+            const Divider(),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green, width: 2),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
+                  Text(
+                    'Presensi $type berhasil untuk $userName',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.green.shade800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK', style: TextStyle(fontSize: 16)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(DateTime dateTime) {
+    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -172,7 +442,7 @@ class _AttendancePageState extends State<AttendancePage> {
                             padding: const EdgeInsets.all(24.0),
                             child: Column(
                               children: [
-                                const SizedBox(height: 40),
+                                const SizedBox(height: 24),
                                 // Camera Preview (Real-time) - Circular
                                 _isCameraInitialized &&
                                         _cameraController != null
@@ -296,7 +566,7 @@ class _AttendancePageState extends State<AttendancePage> {
                               width: double.infinity,
                               height: 56,
                               child: ElevatedButton(
-                                onPressed: canAbsen
+                                onPressed: (canAbsen && !_isProcessing)
                                     ? () => _recordAttendance('Masuk')
                                     : null,
                                 style: ElevatedButton.styleFrom(
@@ -307,16 +577,25 @@ class _AttendancePageState extends State<AttendancePage> {
                                   ),
                                   elevation: 0,
                                 ),
-                                child: Text(
-                                  'Clock In',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: canAbsen
-                                        ? Colors.white
-                                        : Colors.grey[600],
-                                  ),
-                                ),
+                                child: _isProcessing
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        'Clock In',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: (canAbsen && !_isProcessing)
+                                              ? Colors.white
+                                              : Colors.grey[600],
+                                        ),
+                                      ),
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -325,7 +604,7 @@ class _AttendancePageState extends State<AttendancePage> {
                               width: double.infinity,
                               height: 56,
                               child: ElevatedButton(
-                                onPressed: canAbsen
+                                onPressed: (canAbsen && !_isProcessing)
                                     ? () => _recordAttendance('Keluar')
                                     : null,
                                 style: ElevatedButton.styleFrom(
@@ -336,16 +615,25 @@ class _AttendancePageState extends State<AttendancePage> {
                                   ),
                                   elevation: 0,
                                 ),
-                                child: Text(
-                                  'Clock Out',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: canAbsen
-                                        ? Colors.white
-                                        : Colors.grey[600],
-                                  ),
-                                ),
+                                child: _isProcessing
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        'Clock Out',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: (canAbsen && !_isProcessing)
+                                              ? Colors.white
+                                              : Colors.grey[600],
+                                        ),
+                                      ),
                               ),
                             ),
                           ],

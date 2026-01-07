@@ -49,9 +49,10 @@ class _CameraViewPageState extends State<CameraViewPage> {
   }
 
   Future<void> _saveImageToFirestore(File imageFile) async {
-    final sessionService = SessionService();
+    final sessionService = SessionService.instance;
+    await sessionService.init();
     final user = await sessionService.getSession();
-    
+
     if (user == null) {
       setState(() {
         _errorMessage = 'Pengguna tidak login.';
@@ -69,13 +70,10 @@ class _CameraViewPageState extends State<CameraViewPage> {
       // Save the base64 string to Firestore
       // Menggunakan set dengan merge: true untuk menangani dokumen yang dibuat dari Admin (field ada tapi kosong)
       // maupun dari App (field belum ada). Ini juga menghindari error jika dokumen dianggap tidak valid untuk update.
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .set({
-            'faceDataBase64': base64Image,
-            'faceRegistrationTimestamp': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'faceDataBase64': base64Image,
+        'faceRegistrationTimestamp': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       setState(() {
         _isLoading = false;
