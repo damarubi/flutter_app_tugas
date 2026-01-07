@@ -250,6 +250,63 @@ class _AttendancePageState extends State<AttendancePage> {
       return;
     }
 
+    // Validasi: Pastikan wajah yang terdeteksi sesuai dengan akun yang login
+    if (_currentUser == null) {
+      _showError('Session tidak valid. Silakan login kembali');
+      return;
+    }
+
+    // Ekstrak NIP dan Nama dari format API: "NIP_Nama_Angka"
+    // Contoh: "5230411042_Ahmad Fata Dani Adnan_01" -> NIP: "5230411042", Nama: "Ahmad Fata Dani Adnan", Angka: "01"
+    String extractedName = faceResult.nama!.trim();
+    String? extractedNip;
+
+    // Jika nama mengandung underscore, ambil NIP dan nama
+    if (extractedName.contains('_')) {
+      final parts = extractedName.split('_');
+      if (parts.length >= 3) {
+        // Bagian pertama adalah NIP
+        extractedNip = parts[0];
+
+        // Bagian tengah adalah nama
+        if (parts.length == 3) {
+          extractedName = parts[1];
+        } else if (parts.length > 3) {
+          // Jika lebih dari 3 bagian, gabungkan semua kecuali first dan last
+          extractedName = parts.sublist(1, parts.length - 1).join('_');
+        }
+      }
+    }
+
+    // Normalisasi untuk perbandingan (case-insensitive & trim whitespace)
+    final detectedName = extractedName.toLowerCase().trim();
+    final loginName = _currentUser!.fullName.toLowerCase().trim();
+
+    // Validasi Nama
+    if (detectedName != loginName) {
+      _showError(
+        'Wajah tidak sesuai dengan akun login!\n'
+        // 'Terdeteksi: $extractedName\n'
+        'Akun login: ${_currentUser!.fullName}',
+      );
+      return;
+    }
+
+    // Validasi NIP (jika berhasil diekstrak)
+    if (extractedNip != null) {
+      final detectedNip = extractedNip.trim();
+      final loginNip = _currentUser!.nip.trim();
+
+      if (detectedNip != loginNip) {
+        _showError(
+          'NIP tidak sesuai dengan akun login!\n'
+          // 'NIP Terdeteksi: $extractedNip\n'
+          'NIP Akun: ${_currentUser!.nip}',
+        );
+        return;
+      }
+    }
+
     _showLoading('Menyimpan absensi...');
 
     final success = await _attendanceProvider.recordAttendance(type);
@@ -437,85 +494,89 @@ class _AttendancePageState extends State<AttendancePage> {
                 : Column(
                     children: [
                       Expanded(
-                        child: SingleChildScrollView(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: Column(
-                              children: [
-                                const SizedBox(height: 24),
-                                // Camera Preview (Real-time) - Circular
-                                _isCameraInitialized &&
-                                        _cameraController != null
-                                    ? Center(
-                                        child: Container(
+                        child: RefreshIndicator(
+                          onRefresh: _checkStatus,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: Padding(
+                              padding: const EdgeInsets.all(24.0),
+                              child: Column(
+                                children: [
+                                  const SizedBox(height: 24),
+                                  // Camera Preview (Real-time) - Circular
+                                  _isCameraInitialized &&
+                                          _cameraController != null
+                                      ? Center(
+                                          child: Container(
+                                            width: 340,
+                                            height: 340,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.grey[300]!,
+                                                width: 4,
+                                              ),
+                                            ),
+                                            child: ClipOval(
+                                              child: OverflowBox(
+                                                alignment: Alignment.center,
+                                                child: FittedBox(
+                                                  fit: BoxFit.cover,
+                                                  child: SizedBox(
+                                                    width: 340,
+                                                    height:
+                                                        340 *
+                                                        _cameraController!
+                                                            .value
+                                                            .aspectRatio,
+                                                    child: CameraPreview(
+                                                      _cameraController!,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : Container(
                                           width: 340,
                                           height: 340,
                                           decoration: BoxDecoration(
+                                            color: Colors.black,
                                             shape: BoxShape.circle,
                                             border: Border.all(
                                               color: Colors.grey[300]!,
                                               width: 4,
                                             ),
                                           ),
-                                          child: ClipOval(
-                                            child: OverflowBox(
-                                              alignment: Alignment.center,
-                                              child: FittedBox(
-                                                fit: BoxFit.cover,
-                                                child: SizedBox(
-                                                  width: 340,
-                                                  height:
-                                                      340 *
-                                                      _cameraController!
-                                                          .value
-                                                          .aspectRatio,
-                                                  child: CameraPreview(
-                                                    _cameraController!,
-                                                  ),
-                                                ),
-                                              ),
+                                          child: const Center(
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
                                             ),
                                           ),
                                         ),
-                                      )
-                                    : Container(
-                                        width: 340,
-                                        height: 340,
-                                        decoration: BoxDecoration(
-                                          color: Colors.black,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: Colors.grey[300]!,
-                                            width: 4,
-                                          ),
-                                        ),
-                                        child: const Center(
-                                          child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                const SizedBox(height: 32),
-                                // User Name
-                                Text(
-                                  _currentUser?.fullName ?? 'Loading...',
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black,
+                                  const SizedBox(height: 32),
+                                  // User Name
+                                  Text(
+                                    _currentUser?.fullName ?? 'Loading...',
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                // NIP and Position
-                                Text(
-                                  '${_currentUser?.nip ?? ''} - Jabatan Karyawan',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
+                                  const SizedBox(height: 8),
+                                  // NIP and Position
+                                  Text(
+                                    '${_currentUser?.nip ?? ''} - Jabatan Karyawan',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 24),
-                              ],
+                                  const SizedBox(height: 24),
+                                ],
+                              ),
                             ),
                           ),
                         ),
